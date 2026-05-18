@@ -1,63 +1,19 @@
 # DocuMind AI
 
-**DocuMind AI** is a full-stack PDF chatbot application that allows users to upload a PDF document and ask natural-language questions about its content.
+DocuMind AI is a full-stack PDF chatbot that lets users upload a document and ask natural-language questions with trusted, source-grounded answers.
 
-The system extracts text from the PDF, splits it into chunks, creates embeddings, stores them in a FAISS vector index, retrieves relevant document context, and generates answers using an LLM with source page references.
-
----
-
-## Live Project Goal
-
-DocuMind AI is designed to help users understand documents faster by allowing them to chat with PDF files instead of manually reading through long documents.
-
-Users can:
-
-- Upload a PDF
-- Ask questions about the document
-- Get AI-generated answers
-- View source page references
-- Inspect retrieved PDF chunks
-- Continue a chat history for the uploaded document
+The system extracts text from the PDF, splits it into chunks, builds embeddings, retrieves relevant context with FAISS, and generates an answer using DeepSeek with source page references.
 
 ---
 
 ## Features
 
-### PDF Upload
-
-- Upload PDF files from the frontend
-- Backend receives and saves the document
-- Each uploaded PDF receives a unique `document_id`
-
-### PDF Text Extraction
-
-- Extracts PDF text page by page using PyMuPDF
-- Tracks page numbers for source references
-
-### Text Chunking
-
-- Splits extracted text into overlapping chunks
-- Keeps page metadata with every chunk
-
-### Embeddings and Vector Search
-
-- Generates embeddings using SentenceTransformers
-- Stores vectors in FAISS
-- Retrieves the most relevant chunks for each question
-
-### AI Question Answering
-
-- Uses an LLM API to answer questions from retrieved PDF context
-- Prevents unsupported hallucination by instructing the model to answer only from context
-- Returns source page numbers
-
-### Full-Stack Architecture
-
-- FastAPI backend
-- Next.js frontend
-- Tailwind CSS UI
-- FAISS vector search
-- DeepSeek API integration
+- Upload PDFs and generate a unique `document_id`
+- Page-aware text extraction with PyMuPDF
+- Overlapping chunk creation for better retrieval
+- SentenceTransformer embeddings + FAISS vector search
+- DeepSeek-powered Q&A with source page references
+- Collapsible retrieved-chunks panel in the UI
 
 ---
 
@@ -65,19 +21,14 @@ Users can:
 
 ### Backend
 
-- Python
-- FastAPI
-- Uvicorn
-- PyMuPDF
-- SentenceTransformers
-- FAISS
+- Python, FastAPI, Uvicorn
+- PyMuPDF, SentenceTransformers, FAISS
 - OpenAI-compatible DeepSeek API
 - python-dotenv
 
 ### Frontend
 
-- Next.js
-- React
+- Next.js App Router
 - Tailwind CSS
 - Axios
 
@@ -87,40 +38,96 @@ Users can:
 
 ```text
 Upload PDF
-↓
-Extract text page by page
-↓
-Clean and chunk text
-↓
-Generate embeddings
-↓
-Store chunks in FAISS vector index
-↓
-User asks a question
-↓
-Retrieve relevant chunks
-↓
-Send context + question to LLM
-↓
-Return answer with source pages
+	-> Extract text page by page
+	-> Clean + chunk text
+	-> Generate embeddings
+	-> Build FAISS vector index
+Ask a question
+	-> Retrieve relevant chunks
+	-> Send context to LLM
+	-> Return answer with source pages
+```
 
-PDF_Chatbot_AI/
-│
-├── backend/
-│   ├── main.py
-│   ├── pdf_processor.py
-│   ├── chunker.py
-│   ├── vector_store.py
-│   ├── chatbot.py
-│   ├── requirements.txt
-│   ├── .env
-│   └── .gitignore
-│
-├── frontend/
-│   ├── app/
-│   ├── package.json
-│   ├── .env.local
-│   └── ...
-│
-├── README.md
-└── .gitignore
+---
+
+## Environment Variables
+
+### Backend (`backend/.env`)
+
+```bash
+DEEPSEEK_API_KEY=your_key_here
+# Optional: allow extra CORS origins in production
+# ALLOWED_ORIGINS=https://your-frontend-domain.com
+```
+
+### Frontend (`frontend/.env.local`)
+
+```bash
+NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
+```
+
+> Do not commit `.env` or `.env.local` files.
+
+---
+
+## Local Development
+
+### Backend
+
+```bash
+cd backend
+python -m venv .venv
+. .venv/Scripts/activate
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open http://localhost:3000.
+
+---
+
+## API Endpoints
+
+- `GET /`
+- `GET /health`
+- `POST /upload-pdf`
+- `GET /documents`
+- `POST /search`
+- `POST /ask`
+- `DELETE /documents/{document_id}`
+
+---
+
+## Deployment Notes
+
+### Frontend (Vercel)
+
+- Set `NEXT_PUBLIC_API_URL` to your backend URL.
+- Ensure the build command is `npm run build`.
+- Use the default Next.js output configuration.
+
+### Backend (Render or Railway)
+
+- Add `DEEPSEEK_API_KEY` to environment variables.
+- Set `ALLOWED_ORIGINS` to the deployed frontend domain.
+- Run with `uvicorn main:app --host 0.0.0.0 --port 8000`.
+
+---
+
+## Repository Hygiene
+
+The root `.gitignore` already blocks the following:
+
+- `backend/.env`, `frontend/.env.local`
+- `backend/.venv`, `frontend/node_modules`
+- `backend/uploads`, `__pycache__`
+
+Keep uploads and caches out of version control.

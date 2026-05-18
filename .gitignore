@@ -4,6 +4,12 @@
 backend/.env
 frontend/.env.local
 
+# Required project ignores
+backend/.venv/
+frontend/node_modules/
+backend/uploads/
+__pycache__/
+
 # Python
 __pycache__/
 *.pyc

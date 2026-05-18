@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import shutil
 import uuid
 
@@ -18,12 +19,20 @@ app = FastAPI(
     version="1.0.0"
 )
 
+DEFAULT_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000"
+]
+ENV_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+ALLOWED_ORIGINS = sorted(set(DEFAULT_ORIGINS + ENV_ORIGINS))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000"
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -54,7 +63,7 @@ class AskRequest(BaseModel):
 @app.get("/")
 def home():
     return {
-        "message": "PDF Chatbot AI Backend is running"
+        "message": "DocuMind AI Backend is running"
     }
 
 
@@ -71,7 +80,7 @@ async def upload_pdf(file: UploadFile = File(...)):
     Upload a PDF file, extract text, create chunks, and build vector index.
     """
 
-    if not file.filename.lower().endswith(".pdf"):
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(
             status_code=400,
             detail="Only PDF files are allowed."
@@ -79,7 +88,7 @@ async def upload_pdf(file: UploadFile = File(...)):
 
     document_id = str(uuid.uuid4())
 
-    safe_filename = file.filename.replace(" ", "_")
+    safe_filename = Path(file.filename).name.replace(" ", "_")
     file_path = UPLOAD_DIR / f"{document_id}_{safe_filename}"
 
     try:
@@ -87,6 +96,13 @@ async def upload_pdf(file: UploadFile = File(...)):
             shutil.copyfileobj(file.file, buffer)
 
         pages = extract_text_from_pdf(str(file_path))
+
+        if not pages:
+            raise HTTPException(
+                status_code=422,
+                detail="No pages were detected in the uploaded PDF."
+            )
+
         summary = get_pdf_summary(pages)
 
         chunks = create_chunks_from_pages(
@@ -94,6 +110,12 @@ async def upload_pdf(file: UploadFile = File(...)):
             chunk_size=1000,
             overlap=200
         )
+
+        if not chunks:
+            raise HTTPException(
+                status_code=422,
+                detail="No readable text was extracted from the PDF."
+            )
 
         vector_store = VectorStore()
         index_summary = vector_store.build_index(chunks)
@@ -122,7 +144,14 @@ async def upload_pdf(file: UploadFile = File(...)):
             "sample_chunks": chunks[:3]
         }
 
+    except HTTPException:
+        if file_path.exists():
+            file_path.unlink()
+        raise
+
     except Exception as e:
+        if file_path.exists():
+            file_path.unlink()
         raise HTTPException(
             status_code=500,
             detail=f"PDF processing failed: {str(e)}"
@@ -158,6 +187,12 @@ def search_pdf(request: SearchRequest):
         raise HTTPException(
             status_code=400,
             detail="Question cannot be empty."
+        )
+
+    if request.top_k <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="top_k must be a positive integer."
         )
 
     if request.document_id not in documents:
@@ -199,6 +234,12 @@ def ask_pdf(request: AskRequest):
         raise HTTPException(
             status_code=400,
             detail="Question cannot be empty."
+        )
+
+    if request.top_k <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="top_k must be a positive integer."
         )
 
     if request.document_id not in documents:
@@ -263,7 +304,10 @@ def delete_document(document_id: str):
     file_path = Path(documents[document_id]["file_path"])
 
     if file_path.exists():
-        file_path.unlink()
+        try:
+            file_path.unlink()
+        except OSError:
+            pass
 
     del documents[document_id]
 
