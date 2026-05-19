@@ -55,7 +55,9 @@ Ask a question
 ### Backend (`backend/.env`)
 
 ```bash
-DEEPSEEK_API_KEY=your_key_here
+DEEPSEEK_API_KEY=your_deepseek_key
+OPENAI_API_KEY=your_openai_key
+EMBEDDING_MODEL=text-embedding-3-small
 # Optional: allow extra CORS origins in production
 # ALLOWED_ORIGINS=https://your-frontend-domain.com
 ```

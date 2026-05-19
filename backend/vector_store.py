@@ -1,17 +1,62 @@
+import os
+from pathlib import Path
+
 import numpy as np
 import faiss
-from sentence_transformers import SentenceTransformer
+from dotenv import load_dotenv
+from openai import OpenAI
+
+
+ENV_PATH = Path(__file__).resolve().parent / ".env"
+load_dotenv(dotenv_path=ENV_PATH)
 
 
 class VectorStore:
-    def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2"):
+    def __init__(self, model_name: str | None = None):
         """
         In-memory FAISS vector store for one PDF document.
         """
-        self.model = SentenceTransformer(model_name)
+        self.model_name = model_name or os.getenv(
+            "EMBEDDING_MODEL",
+            "text-embedding-3-small"
+        )
+        self.client = self._get_openai_client()
         self.index = None
         self.chunks = []
         self.dimension = None
+
+    def _get_openai_client(self):
+        load_dotenv(dotenv_path=ENV_PATH, override=False)
+        api_key = os.getenv("OPENAI_API_KEY")
+
+        if not api_key:
+            return None
+
+        return OpenAI(api_key=api_key)
+
+    def _embed_texts(self, texts):
+        if not texts:
+            return np.array([], dtype="float32")
+
+        if self.client is None:
+            raise ValueError(
+                "OPENAI_API_KEY not found. Please add OPENAI_API_KEY in your .env file."
+            )
+
+        embeddings = []
+        batch_size = 96
+
+        for start in range(0, len(texts), batch_size):
+            batch = texts[start:start + batch_size]
+
+            response = self.client.embeddings.create(
+                model=self.model_name,
+                input=batch
+            )
+
+            embeddings.extend([item.embedding for item in response.data])
+
+        return np.array(embeddings, dtype="float32")
 
     def build_index(self, chunks):
         """
@@ -24,13 +69,7 @@ class VectorStore:
         self.chunks = chunks
         texts = [chunk["text"] for chunk in chunks]
 
-        embeddings = self.model.encode(
-            texts,
-            convert_to_numpy=True,
-            show_progress_bar=False
-        )
-
-        embeddings = embeddings.astype("float32")
+        embeddings = self._embed_texts(texts)
 
         # Normalize embeddings for cosine similarity
         faiss.normalize_L2(embeddings)
@@ -61,13 +100,7 @@ class VectorStore:
         if top_k <= 0:
             return []
 
-        query_embedding = self.model.encode(
-            [query],
-            convert_to_numpy=True,
-            show_progress_bar=False
-        )
-
-        query_embedding = query_embedding.astype("float32")
+        query_embedding = self._embed_texts([query])
         faiss.normalize_L2(query_embedding)
 
         scores, indices = self.index.search(query_embedding, top_k)
