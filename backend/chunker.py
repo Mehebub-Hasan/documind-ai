@@ -10,6 +10,8 @@ def clean_text(text: str) -> str:
     if not text:
         return ""
 
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = re.sub(r"-\s*\n\s*", "", text)
     text = text.replace("\n", " ")
     text = re.sub(r"\s+", " ", text)
     return text.strip()

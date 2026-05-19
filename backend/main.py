@@ -57,7 +57,7 @@ class SearchRequest(BaseModel):
 class AskRequest(BaseModel):
     document_id: str
     question: str
-    top_k: int = 5
+    top_k: int = 6
 
 
 @app.get("/")

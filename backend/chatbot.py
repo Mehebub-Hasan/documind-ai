@@ -62,21 +62,26 @@ def answer_question_with_deepseek(
     context = build_context_from_chunks(retrieved_chunks)
 
     system_prompt = """
-You are a helpful PDF question-answering assistant.
+You are DocuMind AI, a helpful PDF question-answering assistant.
 
 You must answer the user's question using only the provided PDF context.
 
 Rules:
-1. Use only the provided context.
-2. If the answer is not available in the context, say:
+1. Use only the provided context. Do not use outside knowledge.
+2. If the answer is not available in the context, respond with exactly:
    "The PDF does not contain enough information to answer this question."
 3. Do not make up information.
-4. Mention source page numbers when possible.
-5. Keep the answer clear and concise.
+4. Mention source page numbers when possible using "Source pages: X, Y".
+5. Keep answers clear, concise, and useful for normal users.
+6. If asked for a summary or main idea, provide 3-6 sentences.
+7. If asked for key points, provide 3-7 bullet points.
+8. If asked for a conclusion, provide 1-3 sentences.
+9. If asked for a definition or explanation, give a brief definition and a
+   short clarification using the context.
 """
 
     user_prompt = f"""
-PDF Context:
+PDF Context (page-tagged):
 {context}
 
 User Question:
@@ -97,7 +102,7 @@ Answer:
                 "content": user_prompt
             }
         ],
-        temperature=0.2,
+        temperature=0.1,
         max_tokens=700
     )
 

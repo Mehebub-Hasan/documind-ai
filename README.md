@@ -113,12 +113,14 @@ Open http://localhost:3000.
 - Set `NEXT_PUBLIC_API_URL` to your backend URL.
 - Ensure the build command is `npm run build`.
 - Use the default Next.js output configuration.
+- Confirm no secrets are stored in `frontend/.env.local` before deployment.
 
 ### Backend (Render or Railway)
 
 - Add `DEEPSEEK_API_KEY` to environment variables.
-- Set `ALLOWED_ORIGINS` to the deployed frontend domain.
+- Optionally set `ALLOWED_ORIGINS` to the deployed frontend domain.
 - Run with `uvicorn main:app --host 0.0.0.0 --port 8000`.
+- Confirm `.env` files are not committed and keep keys in the host dashboard.
 
 ---
 

@@ -517,7 +517,7 @@ export default function Home() {
             {retrievedChunks.length > 0 && (
               <details className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
                 <summary className="cursor-pointer text-sm font-semibold text-slate-200">
-                  Sources used to answer ({retrievedChunks.length})
+                  View supporting evidence ({retrievedChunks.length})
                 </summary>
 
                 <div className="mt-4 space-y-4">

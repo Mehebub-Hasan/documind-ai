@@ -53,6 +53,14 @@ class VectorStore:
         if self.index is None:
             raise ValueError("Vector index has not been created yet.")
 
+        query = " ".join(query.split())
+        if not query:
+            return []
+
+        top_k = min(top_k, len(self.chunks))
+        if top_k <= 0:
+            return []
+
         query_embedding = self.model.encode(
             [query],
             convert_to_numpy=True,
