@@ -1,3 +1,9 @@
+## Live Demo
+
+- Frontend: your Vercel live URL
+- Backend API: https://documind-ai-backend-g9yi.onrender.com
+- API Docs: https://documind-ai-backend-g9yi.onrender.com/docs
+
 # DocuMind AI
 
 DocuMind AI is a full-stack PDF chatbot that lets users upload a document and ask natural-language questions with trusted, source-grounded answers.
