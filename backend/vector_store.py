@@ -10,17 +10,37 @@ from openai import OpenAI
 ENV_PATH = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=ENV_PATH)
 
+OPENAI_DEFAULT_MODEL = "text-embedding-3-small"
+LOCAL_DEFAULT_MODEL = "all-MiniLM-L6-v2"
+
+# Module-level cache so the SentenceTransformers model is loaded (and
+# downloaded) once per process, not once per document.
+_local_model_cache: dict = {}
+
 
 class VectorStore:
     def __init__(self, model_name: str | None = None):
         """
-        In-memory FAISS vector store for one PDF document.
+        In-memory FAISS vector store for one document.
+
+        Embeddings come from the OpenAI API when OPENAI_API_KEY is set.
+        Without a key, the store automatically falls back to a local
+        SentenceTransformers model so uploads and search work fully offline.
+
+        An explicit model_name overrides the model of whichever provider is
+        active (EMBEDDING_MODEL for OpenAI, LOCAL_EMBEDDING_MODEL for local).
         """
-        self.model_name = model_name or os.getenv(
-            "EMBEDDING_MODEL",
-            "text-embedding-3-small"
-        )
-        self.client = self._get_openai_client()
+
+        self.provider = "openai" if os.getenv("OPENAI_API_KEY") else "local"
+
+        if model_name is not None:
+            self.model_name = model_name
+        elif self.provider == "openai":
+            self.model_name = os.getenv("EMBEDDING_MODEL", OPENAI_DEFAULT_MODEL)
+        else:
+            self.model_name = os.getenv("LOCAL_EMBEDDING_MODEL", LOCAL_DEFAULT_MODEL)
+
+        self.client = self._get_openai_client() if self.provider == "openai" else None
         self.index = None
         self.chunks = []
         self.dimension = None
@@ -34,9 +54,34 @@ class VectorStore:
 
         return OpenAI(api_key=api_key)
 
+    def _get_local_model(self):
+        from sentence_transformers import SentenceTransformer
+
+        model = _local_model_cache.get(self.model_name)
+
+        if model is None:
+            model = SentenceTransformer(self.model_name)
+            _local_model_cache[self.model_name] = model
+
+        return model
+
+    def _embed_texts_local(self, texts):
+        model = self._get_local_model()
+
+        embeddings = model.encode(
+            list(texts),
+            convert_to_numpy=True,
+            show_progress_bar=False,
+        )
+
+        return np.asarray(embeddings, dtype="float32")
+
     def _embed_texts(self, texts):
         if not texts:
             return np.array([], dtype="float32")
+
+        if self.provider == "local":
+            return self._embed_texts_local(texts)
 
         if self.client is None:
             raise ValueError(
@@ -57,6 +102,30 @@ class VectorStore:
             embeddings.extend([item.embedding for item in response.data])
 
         return np.array(embeddings, dtype="float32")
+
+    def embedding_dimension(self) -> int:
+        """
+        Output dimension of the active embedding provider.
+
+        Used to verify a persisted FAISS index still matches the current
+        provider before querying it.
+        """
+
+        if self.provider == "local":
+            model = self._get_local_model()
+
+            # sentence-transformers >= 6 renamed this method; support both.
+            get_dimension = getattr(
+                model, "get_embedding_dimension", None
+            ) or getattr(model, "get_sentence_embedding_dimension", None)
+
+            dimension = get_dimension() if get_dimension else None
+
+            if dimension:
+                return int(dimension)
+
+        probe = self._embed_texts(["dimension probe"])
+        return int(probe.shape[1])
 
     def build_index(self, chunks):
         """
@@ -113,13 +182,38 @@ class VectorStore:
 
             chunk = self.chunks[idx]
 
+            metadata = {
+                key: value
+                for key, value in chunk.items()
+                if key not in ("chunk_id", "text")
+            }
+
             results.append(
                 {
                     "score": float(score),
                     "chunk_id": chunk["chunk_id"],
-                    "page": chunk["page"],
+                    **metadata,
                     "text": chunk["text"]
                 }
             )
 
         return results
+
+    def save_index(self, path) -> None:
+        """
+        Write the FAISS index to disk so it survives restarts.
+        """
+
+        if self.index is None:
+            raise ValueError("No FAISS index has been built to save.")
+
+        faiss.write_index(self.index, str(path))
+
+    def load_index(self, path, chunks) -> None:
+        """
+        Restore a FAISS index from disk and reattach its chunk metadata.
+        """
+
+        self.index = faiss.read_index(str(path))
+        self.dimension = self.index.d
+        self.chunks = chunks

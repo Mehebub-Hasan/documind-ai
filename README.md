@@ -14,12 +14,16 @@ The system extracts text from the PDF, splits it into chunks, builds embeddings,
 
 ## Features
 
-- Upload PDFs and generate a unique `document_id`
-- Page-aware text extraction with PyMuPDF
+- Upload PDFs or Word .docx files and generate a unique `document_id`
+- Page-aware PDF text extraction with PyMuPDF
+- Word .docx support: paragraphs and tables extracted in document order, with block-level source references (no invented page numbers)
 - Overlapping chunk creation for better retrieval
-- SentenceTransformer embeddings + FAISS vector search
-- DeepSeek-powered Q&A with source page references
-- Collapsible retrieved-chunks panel in the UI
+- OpenAI embeddings + FAISS vector search, with automatic fallback to local SentenceTransformers (`all-MiniLM-L6-v2`) when `OPENAI_API_KEY` is absent — uploads and search keep working fully offline
+- DeepSeek-powered Q&A with source references (pages for PDFs, block ranges for Word)
+- User accounts (register/login) with JWT auth and strict per-user document isolation
+- Persistent storage: documents, chunks, and per-document chat history in a database
+- FAISS indexes saved to disk and rebuilt automatically from the database if missing
+- Private document library and restored chat history in the UI
 
 ---
 
@@ -28,8 +32,11 @@ The system extracts text from the PDF, splits it into chunks, builds embeddings,
 ### Backend
 
 - Python, FastAPI, Uvicorn
-- PyMuPDF, SentenceTransformers, FAISS
+- PyMuPDF (PDF text extraction), python-docx (Word text extraction)
+- OpenAI embeddings + FAISS vector search (falls back to local SentenceTransformers when no API key is set)
 - OpenAI-compatible DeepSeek API
+- SQLAlchemy (SQLite for development, PostgreSQL for production)
+- bcrypt password hashing + PyJWT tokens
 - python-dotenv
 
 ### Frontend
@@ -43,8 +50,8 @@ The system extracts text from the PDF, splits it into chunks, builds embeddings,
 ## Project Workflow
 
 ```text
-Upload PDF
-	-> Extract text page by page
+Upload PDF or DOCX
+	-> Extract text (page by page / block by block)
 	-> Clean + chunk text
 	-> Generate embeddings
 	-> Build FAISS vector index
@@ -64,9 +71,26 @@ Ask a question
 DEEPSEEK_API_KEY=your_deepseek_key
 OPENAI_API_KEY=your_openai_key
 EMBEDDING_MODEL=text-embedding-3-small
+# Local fallback embedder used when OPENAI_API_KEY is absent
+LOCAL_EMBEDDING_MODEL=all-MiniLM-L6-v2
+
+# Auth & persistence (defaults shown; SQLite default is for development only)
+JWT_SECRET_KEY=change-me-to-a-long-random-string
+# DATABASE_URL=sqlite:///./backend/documind.db
+# DATABASE_URL=postgresql://user:pass@host/db   (postgres:// is auto-fixed)
+# INDEX_STORAGE_DIR=backend/storage/indexes
+# UPLOAD_DIR=backend/uploads
+
 # Optional: allow extra CORS origins in production
 # ALLOWED_ORIGINS=https://your-frontend-domain.com
 ```
+
+Notes:
+
+- If `JWT_SECRET_KEY` is not set, the backend falls back to an insecure
+  development secret and logs a warning at startup. Always set it in production.
+- `postgres://` URIs (e.g. from Render) are automatically normalized to the
+  psycopg2 driver; `postgresql://` and `postgresql+psycopg2://` also work.
 
 ### Frontend (`frontend/.env.local`)
 
@@ -100,17 +124,51 @@ npm run dev
 
 Open http://localhost:3000.
 
+### Tests (backend)
+
+```bash
+cd backend
+pip install -r requirements.txt -r requirements-dev.txt
+pytest
+```
+
 ---
 
 ## API Endpoints
 
+Authentication (no token required): `POST /auth/register`, `POST /auth/login`.
+All other endpoints require an `Authorization: Bearer <token>` header and only
+touch the authenticated user's own documents.
+
+- `POST /auth/register`
+- `POST /auth/login`
+- `GET /auth/me`
 - `GET /`
 - `GET /health`
 - `POST /upload-pdf`
+- `POST /upload-docx`
 - `GET /documents`
+- `GET /documents/{document_id}/messages`
 - `POST /search`
 - `POST /ask`
 - `DELETE /documents/{document_id}`
+
+---
+
+## Persistence & Multi-User Architecture
+
+- **Database (SQLAlchemy):** `users`, `documents`, `document_chunks`, and
+  `chat_messages` tables. Document and chunk rows cascade-delete with their
+  document; uploads, chunks, summaries, and Q&A history all survive restarts.
+- **FAISS indexes:** written to `INDEX_STORAGE_DIR/{document_id}.faiss` at
+  upload time. On query, indexes are served from an in-memory cache, loaded
+  from disk when cold, and rebuilt from the stored `document_chunks` rows if
+  the file is missing (e.g. after a container restart).
+- **Isolation:** every document/Q&A route resolves the user from the verified
+  JWT and filters by `user_id`. Another user's document is indistinguishable
+  from a missing one (404). User ids are never read from request bodies.
+- **Deletion:** removes the DB rows (cascading), the uploaded file, and the
+  `.faiss` index.
 
 ---
 
@@ -121,14 +179,23 @@ Open http://localhost:3000.
 - Set `NEXT_PUBLIC_API_URL` to your backend URL.
 - Ensure the build command is `npm run build`.
 - Use the default Next.js output configuration.
-- Confirm no secrets are stored in `frontend/.env.local` before deployment.
+- Confirm no secrets are stored in `frontend/.env.local` before deployment
+  (only `NEXT_PUBLIC_*` values belong there; backend API keys never reach the
+  frontend). The auth token is kept in the browser's localStorage.
 
 ### Backend (Render or Railway)
 
-- Add `DEEPSEEK_API_KEY` to environment variables.
+- Create a PostgreSQL database and set `DATABASE_URL` to its connection
+  string (`postgres://` prefixes are fixed automatically). Do not use the
+  SQLite default in production — it is local/disk-only.
+- Set `JWT_SECRET_KEY` to a long random string.
+- Add `DEEPSEEK_API_KEY` and `OPENAI_API_KEY` to environment variables.
 - Optionally set `ALLOWED_ORIGINS` to the deployed frontend domain.
 - Run with `uvicorn main:app --host 0.0.0.0 --port 8000`.
 - Confirm `.env` files are not committed and keep keys in the host dashboard.
+- Note: on ephemeral filesystems, uploaded files and `.faiss` indexes are lost
+  on redeploy, but documents/chunks/chat history live in the database and
+  indexes are rebuilt automatically on first query.
 
 ---
 

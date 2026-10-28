@@ -2,7 +2,13 @@ fastapi
 uvicorn
 python-multipart
 pymupdf
+python-docx
 numpy
 faiss-cpu
 openai
 python-dotenv
+sentence-transformers
+sqlalchemy
+bcrypt
+PyJWT
+psycopg2-binary

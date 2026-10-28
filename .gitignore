@@ -20,8 +20,13 @@ env/
 # Backend generated files
 backend/uploads/
 backend/vector_data/
+backend/storage/
 uploads/
 vector_data/
+*.db
+
+# ZCode workspace files
+.zcode/
 
 # Node / Next.js
 frontend/node_modules/

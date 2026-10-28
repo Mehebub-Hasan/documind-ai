@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "DocuMind AI",
   description:
-    "DocuMind AI helps you chat with PDF documents using secure, source-grounded answers.",
+    "DocuMind AI helps you chat with PDF and Word documents using secure, source-grounded answers.",
 };
 
 export default function RootLayout({ children }) {

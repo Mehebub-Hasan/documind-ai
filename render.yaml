@@ -1,0 +1,34 @@
+# Render Blueprint for the DocuMind AI backend.
+# Deploy via Render Dashboard: New -> Blueprint -> select this repository.
+
+services:
+  - type: web
+    name: documind-ai-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      # Linked to the PostgreSQL database below (postgres:// is
+      # auto-normalized to the psycopg2 driver by backend/database.py).
+      - key: DATABASE_URL
+        fromDatabase:
+          name: documind-db
+          property: connectionString
+      # Random value generated once by Render on first deploy.
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      # Secrets: paste these in the Render dashboard when prompted.
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      # Comma-separated list of allowed frontend origins, e.g.
+      # https://your-app.vercel.app (set after the first Vercel deploy).
+      - key: ALLOWED_ORIGINS
+        sync: false
+
+databases:
+  - name: documind-db
+    plan: free  # expires after 30 days; upgrade for long-lived production use

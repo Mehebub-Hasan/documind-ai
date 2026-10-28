@@ -26,6 +26,29 @@ def get_deepseek_client():
     return client
 
 
+def format_chunk_source(item: Dict) -> str:
+    """
+    Human-readable source label for a retrieved chunk.
+
+    PDF chunks carry a page number. DOCX chunks carry a document block
+    range, because Word files have no fixed pages.
+    """
+
+    page = item.get("page")
+    if page is not None:
+        return f"Page {page}"
+
+    block_start = item.get("block_start")
+    block_end = item.get("block_end")
+
+    if block_start is not None and block_end is not None:
+        if block_start == block_end:
+            return f"Block {block_start}"
+        return f"Blocks {block_start}-{block_end}"
+
+    return "Unknown source"
+
+
 def build_context_from_chunks(chunks: List[Dict]) -> str:
     """
     Convert retrieved chunks into a readable context block for the LLM.
@@ -34,11 +57,11 @@ def build_context_from_chunks(chunks: List[Dict]) -> str:
     context_parts = []
 
     for item in chunks:
-        page = item.get("page", "Unknown")
+        source = format_chunk_source(item)
         text = item.get("text", "")
 
         context_parts.append(
-            f"[Page {page}]\n{text}"
+            f"[{source}]\n{text}"
         )
 
     return "\n\n---\n\n".join(context_parts)
@@ -71,7 +94,8 @@ Rules:
 2. If the answer is not available in the context, respond with exactly:
    "The PDF does not contain enough information to answer this question."
 3. Do not make up information.
-4. Mention source page numbers when possible using "Source pages: X, Y".
+4. Mention the provided source references when possible: "Source pages: X, Y"
+   for PDF documents or "Source blocks: X-Y" for Word documents.
 5. Keep answers clear, concise, and useful for normal users.
 6. If asked for a summary or main idea, provide 3-6 sentences.
 7. If asked for key points, provide 3-7 bullet points.

@@ -7,6 +7,7 @@ def clean_text(text: str) -> str:
     Clean extracted PDF text.
     Removes extra spaces and line breaks.
     """
+
     if not text:
         return ""
 
@@ -55,6 +56,48 @@ def chunk_text(
     return chunks
 
 
+def create_chunks_from_units(
+    units: List[Dict],
+    chunk_size: int = 1000,
+    overlap: int = 200
+) -> List[Dict]:
+    """
+    Split generic source units (PDF pages, docx block sections) into
+    overlapping chunks.
+
+    Args:
+        units: List of unit dictionaries, each with:
+            - "text": the unit's text
+            - "label": identifier used in chunk ids (e.g. "page_3")
+            - "meta": metadata copied onto every chunk from that unit
+        chunk_size: Maximum characters per chunk
+        overlap: Overlap between chunks
+
+    Returns:
+        List of chunk dictionaries with the unit's metadata attached
+    """
+
+    all_chunks = []
+
+    for unit in units:
+        unit_chunks = chunk_text(
+            text=unit["text"],
+            chunk_size=chunk_size,
+            overlap=overlap
+        )
+
+        for chunk_index, chunk in enumerate(unit_chunks, start=1):
+            all_chunks.append(
+                {
+                    "chunk_id": f"{unit['label']}_chunk_{chunk_index}",
+                    **unit["meta"],
+                    "text": chunk
+                }
+            )
+
+    return all_chunks
+
+
 def create_chunks_from_pages(
     pages: List[Dict],
     chunk_size: int = 1000,
@@ -69,28 +112,20 @@ def create_chunks_from_pages(
         overlap: Overlap between chunks
 
     Returns:
-        List of chunk dictionaries
+        List of chunk dictionaries with "page" metadata
     """
 
-    all_chunks = []
+    units = [
+        {
+            "text": page["text"],
+            "label": f"page_{page['page']}",
+            "meta": {"page": page["page"]}
+        }
+        for page in pages
+    ]
 
-    for page_data in pages:
-        page_number = page_data["page"]
-        page_text = page_data["text"]
-
-        page_chunks = chunk_text(
-            text=page_text,
-            chunk_size=chunk_size,
-            overlap=overlap
-        )
-
-        for chunk_index, chunk in enumerate(page_chunks, start=1):
-            all_chunks.append(
-                {
-                    "chunk_id": f"page_{page_number}_chunk_{chunk_index}",
-                    "page": page_number,
-                    "text": chunk
-                }
-            )
-
-    return all_chunks
+    return create_chunks_from_units(
+        units=units,
+        chunk_size=chunk_size,
+        overlap=overlap
+    )
