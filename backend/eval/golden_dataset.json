@@ -94,7 +94,7 @@
     {
       "id": "tc_09",
       "category": "multi_chunk",
-      "question": "Compare the verification approach used in Lab 04 with the fault condition observed in Lab 06.",
+      "question": "How was the multiplexer verified in Lab 04, and what fault condition was observed in the Lab 06 counter?",
       "expected_facts": [
         "truth table verified for all sixteen combinations",
         "clear line asserted for fewer than 20 nanoseconds"

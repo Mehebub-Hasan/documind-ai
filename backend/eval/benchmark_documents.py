@@ -45,7 +45,7 @@ SOIL_LAB_PAGES = [
     "characterized in this experiment and remains planned future work.",
 ]
 
-ELECTRONICS_LABS_FILENAME = "RAG_Golden_Electronics_Labs_v1.docx"
+ELECTRONICS_LABS_FILENAME = "RAG_Golden_Electronics_Labs_v2.docx"
 
 # One paragraph per block. golden_dataset.json citation ranges refer to
 # these block numbers (1-based, in order).
@@ -70,7 +70,8 @@ ELECTRONICS_LABS_PARAGRAPHS = [
     "inputs and route the selected input to a single output line under the "
     "control of two select lines, S1 and S0.",
     # Block 6 — Lab 04 verification
-    "The truth table was verified for all sixteen select-and-data "
+    "The verification approach for the multiplexer was an exhaustive truth "
+    "table test: the table was verified for all sixteen select-and-data "
     "combinations, and propagation delay from select transition to stable "
     "output measured 14 nanoseconds typical.",
     # Block 7 — Lab 05 circuit
@@ -92,7 +93,8 @@ ELECTRONICS_LABS_PARAGRAPHS = [
     "without skipped or stuck states, and the ripple carry output enabled "
     "correct cascading behavior.",
     # Block 12 — Lab 06 fault finding
-    "A clear input fault was observed when the clear line was asserted for "
+    "The fault condition observed in the Lab 06 counter concerned the "
+    "clear input: a fault appeared when the clear line was asserted for "
     "fewer than 20 nanoseconds, confirming the datasheet minimum pulse "
     "width requirement.",
     # Block 13 — results summary

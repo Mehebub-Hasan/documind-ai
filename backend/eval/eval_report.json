@@ -1,15 +1,15 @@
 {
-  "started_at": "2026-10-29T21:00:02.257349+00:00",
-  "finished_at": "2026-10-29T21:01:13.606940+00:00",
+  "started_at": "2026-10-29T21:26:57.006715+00:00",
+  "finished_at": "2026-10-29T21:28:00.643793+00:00",
   "generator_model": "deepseek-chat",
   "judge_model": "deepseek-chat",
   "dataset": "golden_dataset.json",
-  "benchmark_document": "RAG_Golden_Electronics_Labs_v1.docx",
-  "document_id": "cf6e6b50-cf76-47c1-a248-bf17a743afd0",
+  "benchmark_document": "RAG_Golden_Electronics_Labs_v2.docx",
+  "document_id": "2b7b3d33-2f3e-4590-b316-751c03a510e2",
   "num_cases": 15,
   "aggregate_scores": {
     "context_relevance": {
-      "average_score": 0.7467,
+      "average_score": 0.76,
       "cases_scored": 15
     },
     "groundedness": {
@@ -17,7 +17,7 @@
       "cases_scored": 15
     },
     "answer_relevance": {
-      "average_score": 0.98,
+      "average_score": 1.0,
       "cases_scored": 15
     }
   },
@@ -28,8 +28,8 @@
       "question": "What is the primary function of the 4-to-1 multiplexer implemented in Lab 04?",
       "allow_refusal": false,
       "refusal_detected": false,
-      "top_retrieval_score": 0.6298059225082397,
-      "answer": "The primary function of the 4-to-1 multiplexer is to select one of four data inputs and route the selected input to a single output line, under the control of two select lines, S1 and S0 [Blocks 1-12]. It was implemented with the 74HC153 integrated circuit [Blocks 1-12].",
+      "top_retrieval_score": 0.6297881603240967,
+      "answer": "The primary function of the multiplexer is to select one of four data inputs and route the selected input to a single output line, under the control of two select lines, S1 and S0 [Blocks 1-12].",
       "checks": {
         "refusal_ok": true,
         "citations_ok": true,
@@ -45,16 +45,16 @@
       "metrics": {
         "context_relevance": {
           "score": 1.0,
-          "reasoning": "The context explicitly states the primary function of the 4-to-1 multiplexer in Lab 04: it selects one of four data inputs and routes it to a single output under two select lines. This directly answers the query with minimal noise."
+          "reasoning": "The context explicitly states the primary function of the Lab 04 multiplexer: it selects one of four data inputs and routes the selected input to a single output line under the control of two select lines, S1 and S0. This directly answers the query with minimal noise."
         },
         "groundedness": {
           "score": 1.0,
           "hallucinated_claims": [],
-          "reasoning": "Both claims are directly stated in the retrieved context: the multiplexer's function of selecting one of four data inputs to a single output under two select lines S1 and S0, and its implementation with the 74HC153 IC. No unsupported or invented facts are present."
+          "reasoning": "The answer contains a single claim that directly restates the multiplexer function described explicitly in the retrieved context, including the four data inputs, single output line, and two select lines S1 and S0."
         },
         "answer_relevance": {
           "score": 1.0,
-          "reasoning": "The answer directly and completely explains the primary function of a 4-to-1 multiplexer—selecting one of four data inputs to route to a single output under two select lines—and adds relevant implementation detail (74HC153). It fully addresses the query without evasion or irrelevant chatter."
+          "reasoning": "The answer directly and completely describes the primary function of a 4-to-1 multiplexer: selecting one of four data inputs and routing it to a single output under two select lines. This fully addresses the query without evasion or irrelevant content."
         }
       }
     },
@@ -64,8 +64,8 @@
       "question": "Which integrated circuit was used to build the multiplexer in Lab 04?",
       "allow_refusal": false,
       "refusal_detected": false,
-      "top_retrieval_score": 0.6254953742027283,
-      "answer": "The multiplexer in Lab 04 was built using the 74HC153 integrated circuit [Blocks 1-12].",
+      "top_retrieval_score": 0.6294413208961487,
+      "answer": "The multiplexer in Lab 04 was built with the 74HC153 integrated circuit [Blocks 1-12].",
       "checks": {
         "refusal_ok": true,
         "citations_ok": true,
@@ -80,7 +80,7 @@
       "metrics": {
         "context_relevance": {
           "score": 1.0,
-          "reasoning": "The context explicitly states that the Lab 04 4-to-1 multiplexer was implemented with the 74HC153 integrated circuit, directly answering the query. The remaining chunks contain related lab report material with minimal noise."
+          "reasoning": "The context explicitly states that the Lab 04 4-to-1 multiplexer was implemented with the 74HC153 integrated circuit, directly answering the query. The remaining material about other labs is minor noise but does not obscure the key fact."
         },
         "groundedness": {
           "score": 1.0,
@@ -99,7 +99,7 @@
       "question": "What voltage gain did the inverting amplifier produce in Lab 05?",
       "allow_refusal": false,
       "refusal_detected": false,
-      "top_retrieval_score": 0.40933340787887573,
+      "top_retrieval_score": 0.37901991605758667,
       "answer": "The inverting amplifier in Lab 05 produced a measured voltage gain of -9.8, which was within 2 percent of the ideal -10 predicted by the ratio of feedback to input resistance [Blocks 1-12].",
       "checks": {
         "refusal_ok": true,
@@ -116,16 +116,16 @@
       "metrics": {
         "context_relevance": {
           "score": 1.0,
-          "reasoning": "The first chunk explicitly states the Lab 05 inverting amplifier's measured voltage gain was -9.8, within 2 percent of the ideal -10, directly answering the query. The remaining chunks are mostly noise (multiplexer, counter, general report material), but the key information is clearly present."
+          "reasoning": "The first chunk explicitly states the Lab 05 inverting amplifier's measured voltage gain was -9.8, within 2 percent of the ideal -10, directly answering the query. The remaining chunks provide supporting context (abstract, results summary) with minimal noise."
         },
         "groundedness": {
           "score": 1.0,
           "hallucinated_claims": [],
-          "reasoning": "The answer contains a single claim that directly restates the retrieved context: the measured voltage gain of -9.8 was within 2 percent of the ideal -10 predicted by the feedback-to-input resistance ratio. This is explicitly stated in the context, so it is fully supported."
+          "reasoning": "The answer contains a single claim that directly restates the Lab 05 result from the retrieved context: measured gain of -9.8, within 2 percent of the ideal -10 predicted by the feedback-to-input resistance ratio. All elements are explicitly stated in the context."
         },
         "answer_relevance": {
           "score": 1.0,
-          "reasoning": "The answer directly and completely addresses the query, providing the specific measured voltage gain (-9.8) for the inverting amplifier in Lab 05, along with supporting context about the ideal value and accuracy."
+          "reasoning": "The answer directly and completely addresses the query, providing the specific voltage gain value (-9.8) produced by the inverting amplifier in Lab 05, along with supporting context about its accuracy relative to the ideal value."
         }
       }
     },
@@ -135,8 +135,8 @@
       "question": "Which operational amplifier was used in the Lab 05 circuit?",
       "allow_refusal": false,
       "refusal_detected": false,
-      "top_retrieval_score": 0.3983986973762512,
-      "answer": "The Lab 05 inverting amplifier was built around a **TL072 operational amplifier** [Blocks 1-12].",
+      "top_retrieval_score": 0.3972468674182892,
+      "answer": "The Lab 05 inverting amplifier was built around a TL072 operational amplifier [Blocks 1-12].",
       "checks": {
         "refusal_ok": true,
         "citations_ok": true,
@@ -151,16 +151,16 @@
       "metrics": {
         "context_relevance": {
           "score": 1.0,
-          "reasoning": "The retrieved context explicitly states that the Lab 05 inverting amplifier was built around a TL072 operational amplifier, directly answering the query. The surrounding material about other labs adds minor noise but the key fact is clearly present."
+          "reasoning": "The context explicitly states that the Lab 05 inverting amplifier was built around a TL072 operational amplifier, directly answering the query. The surrounding material about other labs is minor noise but the key fact is clearly present."
         },
         "groundedness": {
           "score": 1.0,
           "hallucinated_claims": [],
-          "reasoning": "The answer contains a single claim stating the Lab 05 inverting amplifier used a TL072 operational amplifier, which is explicitly stated in the retrieved context. No unsupported or invented facts are present."
+          "reasoning": "The answer contains a single claim that the Lab 05 inverting amplifier was built around a TL072 operational amplifier, which is explicitly stated in the retrieved context. No unsupported or invented facts are present."
         },
         "answer_relevance": {
           "score": 1.0,
-          "reasoning": "The answer directly and specifically identifies the operational amplifier (TL072) used in the Lab 05 circuit, fully addressing the query without hedging or irrelevant content."
+          "reasoning": "The answer directly and completely identifies the operational amplifier (TL072) used in the Lab 05 circuit, with no hedging or irrelevant content."
         }
       }
     },
@@ -170,7 +170,7 @@
       "question": "At what clock frequency was the 4-bit synchronous counter tested in Lab 06?",
       "allow_refusal": false,
       "refusal_detected": false,
-      "top_retrieval_score": 0.5246597528457642,
+      "top_retrieval_score": 0.4909558594226837,
       "answer": "The 4-bit synchronous counter in Lab 06 used the 74LS163 integrated circuit clocked at 1 kilohertz [Blocks 1-12].",
       "checks": {
         "refusal_ok": true,
@@ -186,12 +186,12 @@
       "metrics": {
         "context_relevance": {
           "score": 1.0,
-          "reasoning": "The context explicitly states that the Lab 06 4-bit synchronous counter used the 74LS163 clocked at 1 kilohertz, directly answering the query. The surrounding material is mostly related lab content with minimal noise."
+          "reasoning": "The context explicitly states that the Lab 06 4-bit synchronous counter used the 74LS163 clocked at 1 kilohertz, directly answering the query. The surrounding material is mostly related lab report content with minimal noise."
         },
         "groundedness": {
           "score": 1.0,
           "hallucinated_claims": [],
-          "reasoning": "The answer contains a single claim that the 4-bit synchronous counter in Lab 06 used the 74LS163 IC clocked at 1 kHz. The retrieved context explicitly states this fact in the Lab 06 description, so the claim is fully supported."
+          "reasoning": "The answer contains a single claim that the Lab 06 counter used the 74LS163 clocked at 1 kHz, which is explicitly stated in the retrieved context. No unsupported claims are present."
         },
         "answer_relevance": {
           "score": 1.0,
@@ -206,7 +206,7 @@
       "allow_refusal": false,
       "refusal_detected": false,
       "top_retrieval_score": 0.2671363353729248,
-      "answer": "The report covers three experiments conducted during the spring semester, all assembled on solderless breadboards and verified with a mixed-signal oscilloscope [Blocks 1-12]:\n\n- **Lab 04 – 4-to-1 multiplexer:** Implemented with the 74HC153 integrated circuit, its function is to select one of four data inputs and route it to a single output under the control of select lines S1 and S0. The truth table was verified for all sixteen select-and-data combinations, and propagation delay measured 14 nanoseconds typical [Blocks 1-12].\n- **Lab 05 – Inverting operational amplifier:** Built around a TL072 op-amp with a 10 kilo-ohm input resistor and 100 kilo-ohm feedback resistor. The measured voltage gain was -9.8, within 2 percent of the ideal -10, and the measured bandwidth at the -3 decibel point was 48 kilohertz [Blocks 1-12].\n- **Lab 06 – 4-bit synchronous counter:** Used the 74LS163 integrated circuit clocked at 1 kilohertz. The counter advanced through all sixteen states from 0000 to 1111 without skipped or stuck states, and the ripple carry output enabled correct cascading; a clear input fault was observed when the clear line was asserted for fewer than 20 nanoseconds [Blocks 1-12].\n\nAll three circuits met their design targets, with limitations noted regarding breadboard contact resistance and room-temperature-only counter testing [Blocks 13-15].",
+      "answer": "This report covers three laboratory experiments conducted during the spring semester, all assembled on solderless breadboards and verified with a mixed-signal oscilloscope [Blocks 1-12]:\n\n- **Lab 04 – 4-to-1 multiplexer:** Implemented with the 74HC153 integrated circuit, its function is to select one of four data inputs and route it to a single output under the control of two select lines, S1 and S0 [Blocks 1-12]. It was verified with an exhaustive truth table test across all sixteen select-and-data combinations, with a typical propagation delay of 14 nanoseconds [Blocks 1-12].\n- **Lab 05 – Inverting operational amplifier:** Built around a TL072 op-amp with a 10 kilo-ohm input resistor and 100 kilo-ohm feedback resistor [Blocks 1-12]. The measured voltage gain was -9.8, within 2 percent of the ideal -10, and the measured -3 decibel bandwidth was 48 kilohertz [Blocks 1-12].\n- **Lab 06 – 4-bit synchronous counter:** Used the 74LS163 integrated circuit clocked at 1 kilohertz, advancing through all sixteen states from 0000 to 1111 without skipped or stuck states, with correct ripple carry cascading behavior [Blocks 1-12]. A fault appeared when the clear line was asserted for fewer than 20 nanoseconds, confirming the datasheet minimum pulse width requirement [Blocks 1-12].\n\nAll three circuits met their design targets, with limitations including breadboard contact resistance variation of up to 0.4 percent in the amplifier measurements and counter testing only at room temperature [Blocks 13-15].",
       "checks": {
         "refusal_ok": true,
         "citations_ok": true,
@@ -223,16 +223,16 @@
       "metrics": {
         "context_relevance": {
           "score": 0.9,
-          "reasoning": "The context clearly identifies and describes all three experiments (multiplexer, inverting amplifier, counter) with their key details, directly supporting a summary. There is minor redundancy from overlapping chunks and some equipment/results detail that is less central, but overall noise is low."
+          "reasoning": "The context clearly identifies all three experiments (4-to-1 multiplexer in Lab 04, inverting op-amp in Lab 05, 4-bit synchronous counter in Lab 06) with supporting details, and the results summary reinforces them. There is some duplication and minor noise from overlapping blocks, but the key information is fully present."
         },
         "groundedness": {
           "score": 1.0,
           "hallucinated_claims": [],
-          "reasoning": "Every claim in the generated answer is explicitly stated in the retrieved context, including the experiment details, component values, measured results, and the summary limitations. No unsupported or invented facts are present."
+          "reasoning": "Every claim in the answer is explicitly stated in the retrieved context, including the experiment descriptions, component values, measured results, fault condition, and the results summary limitations. No invented facts or unsupported inferences are present."
         },
         "answer_relevance": {
           "score": 1.0,
-          "reasoning": "The answer directly and completely summarizes the three laboratory experiments, providing specific details (components, measurements, results) for each. It is well-organized, on-topic, and contains no evasive or irrelevant content."
+          "reasoning": "The answer directly and completely summarizes all three laboratory experiments, providing specific details (components, measurements, results) for each. It is well-organized, on-topic, and contains no evasive or irrelevant content."
         }
       }
     },
@@ -258,17 +258,17 @@
       ],
       "metrics": {
         "context_relevance": {
-          "score": 1.0,
-          "reasoning": "The first chunk directly answers the query, stating that breadboard contact resistance introduced variation of up to 0.4 percent in the amplifier measurements within the limitations section. The remaining chunks are background lab details but the key information is clearly present with minimal dilution."
+          "score": 0.9,
+          "reasoning": "The limitations section in Blocks 13-15 directly states that breadboard contact resistance introduced up to 0.4 percent variation in the amplifier measurements, which answers the query. The remaining chunks provide amplifier context but are mostly noise relative to the specific question."
         },
         "groundedness": {
           "score": 1.0,
           "hallucinated_claims": [],
-          "reasoning": "The answer contains a single claim that directly restates the limitations sentence from Blocks 13-15, which explicitly states breadboard contact resistance introduced variation of up to 0.4 percent in the amplifier measurements."
+          "reasoning": "The answer contains a single claim that directly restates the limitations statement from Blocks 13-15, which explicitly mentions breadboard contact resistance introducing variation of up to 0.4 percent in the amplifier measurements. This is fully supported by the retrieved context."
         },
         "answer_relevance": {
           "score": 1.0,
-          "reasoning": "The answer directly addresses how the experimental setup affected measurements, citing the specific limitation (breadboard contact resistance) and its quantified effect (up to 0.4 percent variation), with no hedging or irrelevant content."
+          "reasoning": "The answer directly addresses how the experimental setup affected amplifier measurements, citing the specific limitation (breadboard contact resistance) and its quantified effect (up to 0.4 percent variation). It is concise and complete without hedging or irrelevant content."
         }
       }
     },
@@ -295,28 +295,28 @@
       ],
       "metrics": {
         "context_relevance": {
-          "score": 0.9,
-          "reasoning": "The first chunk (Blocks 13-15) explicitly contains a 'Future work' section listing three concrete proposals, directly answering the query. The remaining chunks are lab results and background that add noise but do not obscure the answer."
+          "score": 1.0,
+          "reasoning": "The first chunk (Blocks 13-15) explicitly contains a 'Future work' section listing the proposed next steps: PCB amplifier characterization, extended temperature-range counter testing, and automated data logging. The remaining chunks are lab background/results that add noise but do not obscure the answer."
         },
         "groundedness": {
           "score": 1.0,
           "hallucinated_claims": [],
-          "reasoning": "The answer restates the three future work items exactly as listed in Blocks 13-15: PCB amplifier characterization, industrial temperature range counter testing, and automated data-logging. All three claims are explicitly supported by the retrieved context."
+          "reasoning": "The answer contains a single claim that restates the three future work items explicitly listed in Blocks 13-15 (PCB amplifier characterization, industrial temperature range counter testing, automated data-logging script). All elements are directly supported by the retrieved context."
         },
         "answer_relevance": {
           "score": 1.0,
-          "reasoning": "The answer directly and completely addresses the query by listing the three future work items proposed in the report, with specific details and block citations. There is no evasion or irrelevant chatter."
+          "reasoning": "The answer directly and completely lists the three future work items proposed by the report, with specific details and citations. There is no evasion or irrelevant chatter."
         }
       }
     },
     {
       "id": "tc_09",
       "category": "multi_chunk",
-      "question": "Compare the verification approach used in Lab 04 with the fault condition observed in Lab 06.",
+      "question": "How was the multiplexer verified in Lab 04, and what fault condition was observed in the Lab 06 counter?",
       "allow_refusal": false,
       "refusal_detected": false,
-      "top_retrieval_score": 0.2797713875770569,
-      "answer": "The document does not contain enough information to compare these directly, because it describes the verification approach for Lab 04 and the fault condition for Lab 06 separately, without drawing a comparison between them.\n\nWhat the context does say:\n\n- **Lab 04 verification:** The 4-to-1 multiplexer was implemented with the 74HC153 integrated circuit, and its truth table was verified for all sixteen select-and-data combinations, with propagation delay from select transition to stable output measured at 14 nanoseconds typical [Blocks 1-12].\n- **Lab 06 fault condition:** The 4-bit synchronous counter used the 74LS163 clocked at 1 kilohertz and advanced through all sixteen states from 0000 to 1111 without skipped or stuck states; a clear input fault was observed when the clear line was asserted for fewer than 20 nanoseconds, confirming the datasheet minimum pulse width requirement [Blocks 1-12].\n\nThe context does not state how the Lab 04 verification method relates to or contrasts with the Lab 06 fault observation.",
+      "top_retrieval_score": 0.5749592781066895,
+      "answer": "The multiplexer in Lab 04 was verified using an exhaustive truth table test: the table was checked for all sixteen select-and-data combinations, and the propagation delay from select transition to stable output was measured at 14 nanoseconds typical [Blocks 1-12].\n\nThe fault condition observed in the Lab 06 counter concerned the clear input: a fault appeared when the clear line was asserted for fewer than 20 nanoseconds, confirming the datasheet minimum pulse width requirement [Blocks 1-12].",
       "checks": {
         "refusal_ok": true,
         "citations_ok": true,
@@ -331,17 +331,17 @@
       ],
       "metrics": {
         "context_relevance": {
-          "score": 0.7,
-          "reasoning": "The context contains the Lab 04 verification approach (truth table verified for all sixteen select-and-data combinations, propagation delay measured) and the Lab 06 fault condition (clear input fault when asserted fewer than 20 ns), so the key information for both sides of the comparison is present. However, it is diluted by substantial irrelevant material on Lab 05, equipment, and results summary, adding noise."
+          "score": 0.9,
+          "reasoning": "The context directly answers both parts of the query: the multiplexer verification (exhaustive truth table test, 14 ns propagation delay) and the Lab 06 counter fault (clear input pulse width under 20 ns). Some noise from Lab 05 amplifier details and results/limitations sections dilutes it slightly, but the key information is clearly present."
         },
         "groundedness": {
           "score": 1.0,
           "hallucinated_claims": [],
-          "reasoning": "The answer opens with a refusal-style statement that the context lacks information for a direct comparison, then lists only facts explicitly present in the context: the 74HC153 multiplexer, sixteen select-and-data combinations, 14 ns propagation delay, the 74LS163 counter at 1 kHz, all sixteen states, and the clear-line fault under 20 ns. It closes by noting the context does not relate the two, which is a meta-statement rather than an invented fact. All stated claims are directly supported."
+          "reasoning": "Both claims are directly stated in the retrieved context. The first claim about the multiplexer's exhaustive truth table test, sixteen combinations, and 14 nanosecond propagation delay is explicitly present. The second claim about the Lab 06 counter clear input fault and 20 nanosecond minimum pulse width is also explicitly stated."
         },
         "answer_relevance": {
-          "score": 0.7,
-          "reasoning": "The answer appropriately explains that the context lacks a direct comparison, and it accurately summarizes both the Lab 04 verification approach and the Lab 06 fault condition. However, it stops short of offering any synthesis or contrast between the two, which is the core of the comparison query, making it somewhat incomplete."
+          "score": 1.0,
+          "reasoning": "The answer directly addresses both parts of the query: it explains how the multiplexer was verified in Lab 04 (exhaustive truth table test with propagation delay measurement) and describes the fault condition in the Lab 06 counter (clear pulse width below 20 ns). Both components are answered completely and without evasion."
         }
       }
     },
@@ -351,8 +351,8 @@
       "question": "Which resistors set the gain of the inverting amplifier, and what is the ideal gain ratio?",
       "allow_refusal": false,
       "refusal_detected": false,
-      "top_retrieval_score": 0.3278510272502899,
-      "answer": "The inverting amplifier was built around a TL072 operational amplifier with an input resistor of 10 kilo-ohms and a feedback resistor of 100 kilo-ohms [Blocks 1-12]. The ideal gain is -10, predicted by the ratio of feedback to input resistance [Blocks 1-12].",
+      "top_retrieval_score": 0.31010544300079346,
+      "answer": "The inverting amplifier in Lab 05 used an input resistor of 10 kilo-ohms and a feedback resistor of 100 kilo-ohms [Blocks 1-12]. The ideal gain predicted by the ratio of feedback to input resistance was -10 [Blocks 1-12].",
       "checks": {
         "refusal_ok": true,
         "citations_ok": true,
@@ -369,16 +369,16 @@
       "metrics": {
         "context_relevance": {
           "score": 0.9,
-          "reasoning": "The context explicitly states the inverting amplifier used an input resistor of 10 kilo-ohms and a feedback resistor of 100 kilo-ohms, and that the ideal gain of -10 is predicted by the ratio of feedback to input resistance. This directly answers both parts of the query, though the relevant passage is embedded among multiplexer and counter material that adds noise."
+          "reasoning": "The context explicitly states the input resistor (10 kilo-ohms) and feedback resistor (100 kilo-ohms) of the inverting amplifier, and gives the ideal gain ratio of -10 (feedback/input resistance). The key information is clearly present, with only minor noise from surrounding multiplexer and counter lab details."
         },
         "groundedness": {
           "score": 1.0,
           "hallucinated_claims": [],
-          "reasoning": "Both claims are explicitly stated in the retrieved context: the TL072 amplifier with 10 kΩ input and 100 kΩ feedback resistors, and the ideal gain of -10 predicted by the feedback-to-input resistance ratio. No unsupported facts are introduced."
+          "reasoning": "Both claims are explicitly stated in the retrieved context: the input resistor of 10 kilo-ohms and feedback resistor of 100 kilo-ohms, and the ideal gain of -10 predicted by the ratio of feedback to input resistance. No unsupported claims are present."
         },
         "answer_relevance": {
           "score": 1.0,
-          "reasoning": "The answer directly identifies the resistors (10 kΩ input, 100 kΩ feedback) and states the ideal gain ratio (-10) as the ratio of feedback to input resistance, fully addressing both parts of the query."
+          "reasoning": "The answer directly identifies the resistors (10 kΩ input, 100 kΩ feedback) and states the ideal gain ratio (-10), fully addressing both parts of the query."
         }
       }
     },
@@ -389,7 +389,7 @@
       "allow_refusal": false,
       "refusal_detected": false,
       "top_retrieval_score": 0.3394654393196106,
-      "answer": "The report states that measurements used a Rigol DS1104Z oscilloscope, a Rigol DP832 power supply set to 5 volts, and a Fluke 87V digital multimeter [Blocks 1-12]. It also notes that all circuits were assembled on solderless breadboards and verified with a mixed-signal oscilloscope [Blocks 1-12].",
+      "answer": "The experiments used a Rigol DS1104Z oscilloscope, a Rigol DP832 power supply set to 5 volts, and a Fluke 87V digital multimeter [Blocks 1-12]. The circuits were also verified with a mixed-signal oscilloscope [Blocks 1-12].",
       "checks": {
         "refusal_ok": true,
         "citations_ok": true,
@@ -406,16 +406,16 @@
       "metrics": {
         "context_relevance": {
           "score": 0.9,
-          "reasoning": "The context explicitly lists the measurement equipment used: a Rigol DS1104Z oscilloscope, a Rigol DP832 power supply, and a Fluke 87V digital multimeter, directly answering the query. The remaining chunks are mostly experiment details, adding some noise but not obscuring the key equipment information."
+          "reasoning": "The context explicitly lists the measurement equipment used: a Rigol DS1104Z oscilloscope, a Rigol DP832 power supply, and a Fluke 87V digital multimeter, directly answering the query. The remaining chunks contain experiment details that are largely noise relative to the equipment question, but the key information is clearly present."
         },
         "groundedness": {
           "score": 1.0,
           "hallucinated_claims": [],
-          "reasoning": "Both claims are directly stated in the retrieved context: the equipment list (Rigol DS1104Z, Rigol DP832 at 5 volts, Fluke 87V) and the statement that all circuits were assembled on solderless breadboards and verified with a mixed-signal oscilloscope. No unsupported facts are introduced."
+          "reasoning": "Both claims are directly stated in the retrieved context: the equipment list matches exactly, and the abstract states circuits were verified with a mixed-signal oscilloscope. No unsupported facts are introduced."
         },
         "answer_relevance": {
           "score": 1.0,
-          "reasoning": "The answer directly lists the measurement equipment (oscilloscope, power supply, multimeter) used across the experiments, citing the relevant blocks. It fully addresses the query without evasion or irrelevant content."
+          "reasoning": "The answer directly lists the measurement equipment used across the experiments (oscilloscope, power supply, multimeter) with specific models, fully addressing the query without evasion or irrelevant chatter."
         }
       }
     },
@@ -425,8 +425,8 @@
       "question": "What propagation delay was measured for the multiplexer, and what counter behavior confirmed the datasheet minimum pulse width?",
       "allow_refusal": false,
       "refusal_detected": false,
-      "top_retrieval_score": 0.5394590497016907,
-      "answer": "The multiplexer's propagation delay from select transition to stable output measured 14 nanoseconds typical [Blocks 1-12]. For the counter, a clear input fault was observed when the clear line was asserted for fewer than 20 nanoseconds, confirming the datasheet minimum pulse width requirement [Blocks 1-12].",
+      "top_retrieval_score": 0.5856289863586426,
+      "answer": "The multiplexer's propagation delay from select transition to stable output measured 14 nanoseconds typical [Blocks 1-12]. For the counter, a fault appeared when the clear line was asserted for fewer than 20 nanoseconds, confirming the datasheet minimum pulse width requirement [Blocks 1-12].",
       "checks": {
         "refusal_ok": true,
         "citations_ok": true,
@@ -442,16 +442,16 @@
       "metrics": {
         "context_relevance": {
           "score": 0.9,
-          "reasoning": "The context directly states the multiplexer propagation delay (14 nanoseconds typical) and describes the counter clear-input fault below 20 nanoseconds confirming the datasheet minimum pulse width. The only noise is the summary/limitations block and some unrelated amplifier details, but the key information is clearly present."
+          "reasoning": "The context directly answers both parts: the multiplexer propagation delay is stated as 14 nanoseconds typical, and the counter behavior confirming the datasheet minimum pulse width is described (fault when clear asserted under 20 ns). Some noise from the amplifier lab and equipment details dilutes it slightly, but the key facts are clearly present."
         },
         "groundedness": {
           "score": 1.0,
           "hallucinated_claims": [],
-          "reasoning": "Both claims are directly stated in the retrieved context: the multiplexer propagation delay of 14 nanoseconds typical and the counter clear input fault at fewer than 20 nanoseconds confirming the datasheet minimum pulse width requirement. No unsupported or invented facts appear."
+          "reasoning": "Both claims are directly stated in the retrieved context: the 14 ns typical propagation delay for the multiplexer and the counter fault when the clear line was asserted for fewer than 20 ns, confirming the datasheet minimum pulse width requirement."
         },
         "answer_relevance": {
           "score": 1.0,
-          "reasoning": "The answer directly addresses both parts of the query: it states the measured multiplexer propagation delay (14 ns typical) and describes the counter behavior (clear input fault when clear asserted below 20 ns) that confirmed the datasheet minimum pulse width. Both requested facts are provided clearly and completely."
+          "reasoning": "The answer directly addresses both parts of the query: it states the measured multiplexer propagation delay (14 ns typical) and describes the counter behavior (fault when clear line asserted below 20 ns) that confirmed the datasheet minimum pulse width. No evasion or irrelevant content."
         }
       }
     },
@@ -462,7 +462,7 @@
       "allow_refusal": true,
       "refusal_detected": true,
       "top_retrieval_score": 0.3075519800186157,
-      "answer": "The document does not contain enough information to answer this question. It describes the circuits, equipment, and results for the three labs [Blocks 1-12], but it does not state any component costs.",
+      "answer": "The document does not contain enough information to answer this question. It describes the three lab circuits, the equipment used (a Rigol DS1104Z oscilloscope, a Rigol DP832 power supply, and a Fluke 87V multimeter) [Blocks 1-12], and the results and limitations [Blocks 13-15], but it does not state any component costs.",
       "checks": {
         "refusal_ok": true,
         "citations_ok": null,
@@ -473,16 +473,16 @@
       "metrics": {
         "context_relevance": {
           "score": 0.0,
-          "reasoning": "The query asks for the total cost of components used in the three labs, but none of the retrieved chunks mention any prices, costs, or component expenses. The chunks describe circuit designs, measurements, and results, which are entirely unrelated to cost information."
+          "reasoning": "The query asks for the total cost of components used in the three labs, but none of the retrieved chunks mention any costs, prices, or budget information. The chunks describe circuit designs, measurements, and results, which are entirely unrelated to the cost question."
         },
         "groundedness": {
           "score": 1.0,
           "hallucinated_claims": [],
-          "reasoning": "The answer is a refusal stating the document lacks component cost information. It makes no factual claims about the document's content beyond noting it describes circuits, equipment, and results, which is accurate. A refusal scores 1.0."
+          "reasoning": "The answer is a refusal explaining the context lacks the requested information, but it also makes factual claims about the document's contents. Each of those claims (three lab circuits, the listed equipment, results and limitations) is explicitly supported by the retrieved context, so all claims are grounded."
         },
         "answer_relevance": {
           "score": 1.0,
-          "reasoning": "The answer is a clear, appropriate refusal for an unanswerable query, explaining that the document describes the labs but contains no component cost information. This directly addresses the query without evasion."
+          "reasoning": "The query is intentionally unanswerable from the source document, and the answer correctly refuses while explaining what the document does contain (circuits, equipment, results) and explicitly noting that no component costs are stated. This is a clear, appropriate refusal."
         }
       }
     },
@@ -493,7 +493,7 @@
       "allow_refusal": true,
       "refusal_detected": true,
       "top_retrieval_score": 0.2524590492248535,
-      "answer": "The document does not contain enough information to answer this question. It describes the three lab experiments, equipment, and results [Blocks 1-12], but does not name any supervisor or graduate student associated with the laboratory sessions.",
+      "answer": "The document does not contain enough information to answer this question. It describes the three lab experiments, equipment, and results [Blocks 1-12] [Blocks 13-15], but it does not name any supervisor or graduate student associated with the laboratory sessions.",
       "checks": {
         "refusal_ok": true,
         "citations_ok": null,
@@ -504,16 +504,16 @@
       "metrics": {
         "context_relevance": {
           "score": 0.0,
-          "reasoning": "The retrieved chunks are a digital electronics laboratory report covering multiplexer, amplifier, and counter circuits. They contain no mention of a graduate student, supervisor, or who supervised the laboratory sessions. The context is entirely irrelevant to the query."
+          "reasoning": "The query asks who supervised the laboratory sessions, but the retrieved chunks are a technical lab report covering multiplexer, amplifier, and counter circuits. No supervisor, instructor, or graduate student is mentioned anywhere in the context, so the needed information is entirely absent."
         },
         "groundedness": {
           "score": 1.0,
           "hallucinated_claims": [],
-          "reasoning": "The answer is a refusal stating the document lacks information about a supervisor or graduate student. It makes no factual claims beyond noting the document's general content, which is consistent with the context, so it is fully grounded."
+          "reasoning": "The answer is a refusal stating the document lacks information about a supervisor or graduate student. It makes no factual claims about the document's content beyond noting it describes experiments, equipment, and results, which is accurate. A pure refusal scores 1.0."
         },
         "answer_relevance": {
           "score": 1.0,
-          "reasoning": "The query is intentionally unanswerable from the source document, and the answer clearly refuses while explaining what the document does contain (experiments, equipment, results) and what it lacks (any named supervisor or graduate student). This is the appropriate, complete response."
+          "reasoning": "The query is intentionally unanswerable from the source document, and the answer clearly refuses while explaining what the document does contain (experiments, equipment, results) and what it lacks (any named supervisor or graduate student). This is the appropriate, correct behavior."
         }
       }
     },
@@ -523,8 +523,8 @@
       "question": "How many pages does the full datasheet for the TL072 contain?",
       "allow_refusal": true,
       "refusal_detected": true,
-      "top_retrieval_score": 0.39184805750846863,
-      "answer": "The document does not contain enough information to answer this question. It only mentions that the inverting amplifier was built around a TL072 operational amplifier with a 10 kilo-ohm input resistor and 100 kilo-ohm feedback resistor, and that its bandwidth was limited by the TL072's gain-bandwidth product [Blocks 1-12]. It says nothing about the length of the TL072 datasheet.",
+      "top_retrieval_score": 0.3258375823497772,
+      "answer": "The document does not contain enough information to answer this question. It mentions the TL072 only as the operational amplifier used in Lab 05, noting its input resistor of 10 kilo-ohms, feedback resistor of 100 kilo-ohms, and that bandwidth was limited by its gain-bandwidth product [Blocks 1-12] — but it gives no details about the datasheet's length or page count.",
       "checks": {
         "refusal_ok": true,
         "citations_ok": null,
@@ -535,16 +535,16 @@
       "metrics": {
         "context_relevance": {
           "score": 0.0,
-          "reasoning": "The query asks for the page count of the TL072 datasheet, but the retrieved chunks are a lab report about multiplexer, amplifier, and counter circuits. The TL072 is only mentioned incidentally as the op-amp used, with no datasheet page information present. The context is irrelevant to the query."
+          "reasoning": "The retrieved chunks are from a digital electronics lab report about multiplexers, amplifiers, and counters. They mention the TL072 only incidentally as the op-amp used in a lab, and contain no information about the TL072 datasheet or its page count. The context is entirely irrelevant to the query."
         },
         "groundedness": {
           "score": 1.0,
           "hallucinated_claims": [],
-          "reasoning": "The answer is a refusal explaining the context lacks the requested information, while accurately restating details explicitly present in the context (TL072 op-amp, 10 kΩ input resistor, 100 kΩ feedback resistor, bandwidth limited by gain-bandwidth product). No unsupported factual claims are made."
+          "reasoning": "The answer is a refusal explaining the context lacks the requested detail (datasheet length/page count). The supporting facts it cites (TL072 as the Lab 05 op-amp, 10 kΩ input resistor, 100 kΩ feedback resistor, bandwidth limited by gain-bandwidth product) are all explicitly stated in the context, and the refusal itself makes no unsupported factual claims."
         },
         "answer_relevance": {
           "score": 1.0,
-          "reasoning": "The query is intentionally unanswerable from the source document, and the answer appropriately refuses while explaining what the document does contain about the TL072. This is a clear, correct refusal."
+          "reasoning": "The query is intentionally unanswerable from the source document, and the answer clearly refuses while explaining what IS known (the TL072's role and component values in Lab 05) and why the page count cannot be determined. This is the appropriate, correct behavior."
         }
       }
     }
