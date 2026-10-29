@@ -3,6 +3,7 @@ import os
 import sys
 import tempfile
 import uuid
+import zlib
 from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -41,6 +42,7 @@ ORIGINAL_EMBED_TEXTS = VectorStore._embed_texts
 def _stub_embed_texts(self, texts):
     """
     Deterministic offline embeddings so tests never call the OpenAI API.
+    Uses crc32 (stable across processes) rather than Python's hash().
     """
 
     vectors = []
@@ -49,7 +51,7 @@ def _stub_embed_texts(self, texts):
         vector = [0.0] * EMBEDDING_DIM
 
         for token in text.lower().split():
-            vector[hash(token) % EMBEDDING_DIM] += 1.0
+            vector[zlib.crc32(token.encode("utf-8")) % EMBEDDING_DIM] += 1.0
 
         if not any(vector):
             vector[0] = 1.0

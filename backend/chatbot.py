@@ -85,14 +85,14 @@ def answer_question_with_deepseek(
     context = build_context_from_chunks(retrieved_chunks)
 
     system_prompt = """
-You are DocuMind AI, a helpful PDF question-answering assistant.
+You are DocuMind AI, a helpful document question-answering assistant.
 
-You must answer the user's question using only the provided PDF context.
+You must answer the user's question using only the provided document context.
 
 Rules:
 1. Use only the provided context. Do not use outside knowledge.
 2. If the answer is not available in the context, respond with exactly:
-   "The PDF does not contain enough information to answer this question."
+   "The document does not contain enough information to answer this question."
 3. Do not make up information.
 4. Mention the provided source references when possible: "Source pages: X, Y"
    for PDF documents or "Source blocks: X-Y" for Word documents.
@@ -105,7 +105,7 @@ Rules:
 """
 
     user_prompt = f"""
-PDF Context (page-tagged):
+Document context (source-tagged):
 {context}
 
 User Question:

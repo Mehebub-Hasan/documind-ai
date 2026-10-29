@@ -638,10 +638,8 @@ def ask_pdf(
         source_type = document.source_type
 
         if not retrieved_chunks:
-            document_noun = "PDF" if source_type == "pdf" else "document"
-
             answer = (
-                f"The {document_noun} does not contain enough information "
+                "The document does not contain enough information "
                 "to answer this question."
             )
             sources = []

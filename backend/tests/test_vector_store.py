@@ -1,3 +1,5 @@
+import zlib
+
 import numpy as np
 import pytest
 
@@ -32,7 +34,15 @@ class FakeLocalModel:
 
         for text in texts:
             vector = [0.0] * self.dimension
-            vector[hash(text) % self.dimension] = 1.0
+
+            # crc32 keeps vectors stable across processes (Python's hash()
+            # is randomized per run, which can flip ranking assertions).
+            for token in text.lower().split():
+                vector[zlib.crc32(token.encode("utf-8")) % self.dimension] += 1.0
+
+            if not any(vector):
+                vector[0] = 1.0
+
             vectors.append(vector)
 
         return np.array(vectors, dtype="float32")
