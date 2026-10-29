@@ -37,6 +37,9 @@ class Document(Base):
     stored_path = Column(String, nullable=False)
     source_type = Column(String, nullable=False)  # "pdf" | "docx"
     summary_json = Column(Text, nullable=False, default="{}")
+    # Grounded executive summary (JSON: overview + cited takeaways),
+    # generated once at upload or on first open.
+    summary = Column(Text, nullable=True)
     chunk_count = Column(Integer, nullable=False, default=0)
     index_path = Column(String, nullable=True)
     created_at = Column(DateTime, default=utcnow, nullable=False)

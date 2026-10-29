@@ -180,6 +180,24 @@ body {
   animation: fadeUp 0.2s ease-out both;
 }
 
+/* Landing showcase carousel: 300ms fade/slide per swap, 4.5s cycle bar. */
+.animate-showcase-swap {
+  animation: fadeUp 0.3s ease-out both;
+}
+
+@keyframes showcaseProgress {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+.showcase-progress {
+  animation: showcaseProgress 4.5s linear forwards;
+}
+
 .animate-sheet {
   animation: sheetUp 0.2s ease-out both;
 }

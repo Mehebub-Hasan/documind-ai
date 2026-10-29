@@ -17,7 +17,7 @@ from auth import (
     hash_password,
     verify_password,
 )
-from chatbot import answer_question_with_deepseek
+from chatbot import NOT_FOUND_ANSWER, answer_question_with_deepseek
 from chunker import create_chunks_from_pages, create_chunks_from_units
 from database import get_db, init_db
 from docx_processor import (
@@ -28,8 +28,9 @@ from docx_processor import (
     create_units_from_sections,
 )
 import document_store
-from models import ChatMessage, Document, User
+from models import ChatMessage, Document, DocumentChunk, User
 from pdf_processor import extract_text_from_pdf, get_pdf_summary
+from summarizer import generate_document_summary
 from vector_store import VectorStore
 
 
@@ -273,6 +274,10 @@ def _process_and_store(
         vector_store = VectorStore()
         index_summary = vector_store.build_index(chunks)
 
+        # Grounded executive summary. Best-effort: the extractive fallback
+        # keeps uploads working (fully offline) when no LLM key is set.
+        executive_summary = generate_document_summary(chunks)
+
         document_store.persist_new_document(
             db,
             document_id=document_id,
@@ -282,7 +287,8 @@ def _process_and_store(
             source_type=source_type,
             summary=summary,
             chunks=chunks,
-            vector_store=vector_store
+            vector_store=vector_store,
+            executive_summary=executive_summary
         )
 
         return {
@@ -292,6 +298,7 @@ def _process_and_store(
             "file_path": str(file_path),
             "source_type": source_type,
             "summary": summary,
+            "document_summary": executive_summary,
             "chunk_summary": {
                 "total_chunks": len(chunks),
                 "chunk_size": 1000,
@@ -496,6 +503,70 @@ def list_documents(
     }
 
 
+def _ensure_executive_summary(db: Session, document: Document) -> dict | None:
+    """
+    Return the document's persisted executive summary, generating and storing
+    it on first open. Documents uploaded before this feature existed (and any
+    where generation is impossible) have summary = NULL until opened once.
+    """
+
+    parsed = _parse_json(document.summary, None)
+    if parsed is not None:
+        return parsed
+
+    rows = (
+        db.query(DocumentChunk)
+        .filter(DocumentChunk.document_id == document.id)
+        .order_by(DocumentChunk.chunk_index)
+        .all()
+    )
+    chunks = document_store.chunks_from_rows(rows)
+
+    if not chunks:
+        return None
+
+    summary = generate_document_summary(chunks)
+
+    document.summary = json.dumps(summary)
+    db.commit()
+
+    return summary
+
+
+@app.get("/documents/{document_id}")
+def get_document(
+    document_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Return metadata for one of the current user's documents, including the
+    grounded executive summary (generated on first open if missing).
+    """
+
+    document = _get_owned_document(db, document_id, current_user)
+
+    if document is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found."
+        )
+
+    return {
+        "document_id": document.id,
+        "filename": document.filename,
+        "source_type": document.source_type,
+        "chunk_count": document.chunk_count,
+        "summary": _parse_json(document.summary_json, {}),
+        "document_summary": _ensure_executive_summary(db, document),
+        "created_at": (
+            document.created_at.isoformat()
+            if document.created_at
+            else None
+        )
+    }
+
+
 @app.get("/documents/{document_id}/messages")
 def get_document_messages(
     document_id: str,
@@ -638,10 +709,7 @@ def ask_pdf(
         source_type = document.source_type
 
         if not retrieved_chunks:
-            answer = (
-                "The document does not contain enough information "
-                "to answer this question."
-            )
+            answer = NOT_FOUND_ANSWER
             sources = []
         else:
             answer = answer_question_with_deepseek(

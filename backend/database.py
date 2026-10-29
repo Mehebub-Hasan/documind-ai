@@ -40,14 +40,41 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
+def ensure_schema_upgrades(engine) -> None:
+    """
+    Apply light in-place migrations for databases created before a column
+    existed. create_all() only builds missing tables, so existing deployments
+    (SQLite dev file or PostgreSQL on Render) would otherwise never gain the
+    new column.
+    """
+
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    table_names = inspector.get_table_names()
+
+    if "documents" not in table_names:
+        return
+
+    column_names = {column["name"] for column in inspector.get_columns("documents")}
+
+    if "summary" not in column_names:
+        with engine.begin() as connection:
+            connection.execute(
+                text("ALTER TABLE documents ADD COLUMN summary TEXT")
+            )
+
+
 def init_db():
     """
-    Create all tables if they do not exist yet.
+    Create all tables if they do not exist yet, then upgrade existing tables
+    with columns added after the initial release.
     """
 
     import models  # noqa: F401  (registers models on Base)
 
     Base.metadata.create_all(bind=engine)
+    ensure_schema_upgrades(engine)
 
 
 def get_db():

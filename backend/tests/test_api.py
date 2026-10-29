@@ -249,6 +249,109 @@ class TestAsk:
         assert response.status_code == 404
 
 
+class TestDocumentSummary:
+
+    def test_upload_returns_grounded_summary(self, client, pdf_bytes):
+        user = make_user(client)
+
+        response = upload(
+            client, "/upload-pdf", "sample.pdf", pdf_bytes, PDF_CONTENT_TYPE, user["headers"]
+        )
+
+        assert response.status_code == 200
+        summary = response.json()["document_summary"]
+
+        assert summary["method"] == "extractive"  # no LLM key in tests
+        assert summary["overview"]
+        assert 1 <= len(summary["takeaways"]) <= 3
+        assert all(
+            item["text"] and item["source"].startswith("Page ")
+            for item in summary["takeaways"]
+        )
+
+    def test_docx_summary_cites_blocks(self, client, docx_bytes):
+        user = make_user(client)
+
+        response = upload(
+            client, "/upload-docx", "sample.docx", docx_bytes, DOCX_CONTENT_TYPE, user["headers"]
+        )
+        summary = response.json()["document_summary"]
+
+        assert all(
+            item["source"].startswith("Block")
+            for item in summary["takeaways"]
+        )
+
+    def test_detail_endpoint_returns_stored_summary(self, client, pdf_bytes):
+        user = make_user(client)
+
+        upload_response = upload(
+            client, "/upload-pdf", "sample.pdf", pdf_bytes, PDF_CONTENT_TYPE, user["headers"]
+        )
+        document_id = upload_response.json()["document_id"]
+
+        response = client.get(f"/documents/{document_id}", headers=user["headers"])
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["document_id"] == document_id
+        assert data["document_summary"]["overview"]
+        assert data["document_summary"] == upload_response.json()["document_summary"]
+
+    def test_detail_endpoint_backfills_legacy_documents(self, client, pdf_bytes):
+        from sqlalchemy import text
+
+        from database import engine
+
+        user = make_user(client)
+
+        upload_response = upload(
+            client, "/upload-pdf", "sample.pdf", pdf_bytes, PDF_CONTENT_TYPE, user["headers"]
+        )
+        document_id = upload_response.json()["document_id"]
+
+        # Simulate a document uploaded before this feature existed.
+        with engine.begin() as connection:
+            connection.execute(text("UPDATE documents SET summary = NULL"))
+
+        response = client.get(f"/documents/{document_id}", headers=user["headers"])
+
+        assert response.status_code == 200
+        summary = response.json()["document_summary"]
+        assert summary["overview"]
+
+        with engine.begin() as connection:
+            stored = connection.execute(
+                text("SELECT summary FROM documents WHERE id = :id"),
+                {"id": document_id},
+            ).scalar()
+
+        assert stored is not None
+
+        again = client.get(f"/documents/{document_id}", headers=user["headers"])
+        assert again.json()["document_summary"] == summary  # stable, not regenerated
+
+    def test_detail_endpoint_is_user_isolated(self, client, pdf_bytes):
+        owner = make_user(client)
+        other = make_user(client)
+
+        upload_response = upload(
+            client, "/upload-pdf", "sample.pdf", pdf_bytes, PDF_CONTENT_TYPE, owner["headers"]
+        )
+        document_id = upload_response.json()["document_id"]
+
+        response = client.get(f"/documents/{document_id}", headers=other["headers"])
+
+        assert response.status_code == 404
+
+    def test_detail_endpoint_unknown_document(self, client):
+        user = make_user(client)
+
+        response = client.get("/documents/does-not-exist", headers=user["headers"])
+
+        assert response.status_code == 404
+
+
 class TestDocumentLifecycle:
 
     def test_documents_listing_shows_source_type(self, client, pdf_bytes, docx_bytes):

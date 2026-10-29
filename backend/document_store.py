@@ -56,6 +56,7 @@ def persist_new_document(
     summary: dict,
     chunks: list,
     vector_store: VectorStore,
+    executive_summary: dict | None = None,
 ) -> Path:
     """
     Save document metadata and chunks to the database and write the FAISS
@@ -73,6 +74,9 @@ def persist_new_document(
             stored_path=stored_path,
             source_type=source_type,
             summary_json=json.dumps(summary),
+            summary=(
+                json.dumps(executive_summary) if executive_summary is not None else None
+            ),
             chunk_count=len(chunks),
             index_path=str(index_path),
         )

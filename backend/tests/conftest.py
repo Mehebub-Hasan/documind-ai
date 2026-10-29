@@ -70,6 +70,18 @@ def stub_embeddings(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def disable_llm_calls(monkeypatch):
+    """
+    Keep the suite hermetic: a developer's backend/.env may contain real API
+    keys, and uploads generate executive summaries through the LLM. Tests
+    that exercise the LLM paths patch in their own fake clients.
+    """
+
+    monkeypatch.setattr("summarizer.get_deepseek_client", lambda: None)
+    monkeypatch.setattr("chatbot.get_deepseek_client", lambda: None)
+
+
+@pytest.fixture(autouse=True)
 def clean_state():
     """
     Reset in-memory caches, then wipe the database tables and generated
