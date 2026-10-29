@@ -132,6 +132,28 @@ pip install -r requirements.txt -r requirements-dev.txt
 pytest
 ```
 
+### RAG Triad evaluation
+
+```bash
+cd backend
+python -m eval.runner                                   # starter dataset
+python -m eval.runner --dataset eval/golden_dataset.json --gate
+```
+
+Runs benchmark cases through the real pipeline (retrieval gate, DeepSeek
+generation, attribution checks) and scores them with LLM-as-a-Judge metrics
+on the RAG Triad: Context Relevance, Groundedness, and Answer Relevance.
+Prints a scoring table and writes a detailed `backend/eval/eval_report.json`
+(gitignored). Requires `DEEPSEEK_API_KEY`; benchmark documents and the eval
+user persist in the configured database and are reused across runs.
+
+`--gate` enforces regression floors (groundedness >= 0.8, answer relevance
+>= 0.7, context relevance >= 0.5, plus deterministic refusal and citation
+checks per case) and exits non-zero on failure. CI runs the golden dataset
+with gates on every pull request and push to `main`
+(`.github/workflows/rag-eval.yml`, needs the `DEEPSEEK_API_KEY` repo
+secret; the report is uploaded as a workflow artifact).
+
 ---
 
 ## API Endpoints

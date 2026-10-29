@@ -1,0 +1,172 @@
+{
+  "description": "Golden RAG Triad benchmark: 15 cases against the electronics lab report (benchmark_documents.electronics_labs, DOCX). Block ranges in expected_citations refer to that document's paragraphs (1-based). Categories: direct_fact, multi_chunk, unanswerable, citation_integrity. Unanswerable cases verify the retrieval gate + refusal path; citation_integrity cases verify the pipeline cites the block ranges that actually contain the answer.",
+  "document": "electronics_labs",
+  "cases": [
+    {
+      "id": "tc_01",
+      "category": "direct_fact",
+      "question": "What is the primary function of the 4-to-1 multiplexer implemented in Lab 04?",
+      "expected_facts": [
+        "Selects one of four data inputs",
+        "Routes the selected input to a single output line based on two select lines"
+      ],
+      "expected_citations": ["Blocks 4-6"],
+      "allow_refusal": false,
+      "top_k": 6
+    },
+    {
+      "id": "tc_02",
+      "category": "direct_fact",
+      "question": "Which integrated circuit was used to build the multiplexer in Lab 04?",
+      "expected_facts": ["74HC153"],
+      "expected_citations": ["Blocks 4-6"],
+      "allow_refusal": false,
+      "top_k": 6
+    },
+    {
+      "id": "tc_03",
+      "category": "direct_fact",
+      "question": "What voltage gain did the inverting amplifier produce in Lab 05?",
+      "expected_facts": [
+        "-9.8",
+        "within 2 percent of the ideal -10"
+      ],
+      "expected_citations": ["Blocks 7-9"],
+      "allow_refusal": false,
+      "top_k": 6
+    },
+    {
+      "id": "tc_04",
+      "category": "direct_fact",
+      "question": "Which operational amplifier was used in the Lab 05 circuit?",
+      "expected_facts": ["TL072"],
+      "expected_citations": ["Blocks 7-9"],
+      "allow_refusal": false,
+      "top_k": 6
+    },
+    {
+      "id": "tc_05",
+      "category": "direct_fact",
+      "question": "At what clock frequency was the 4-bit synchronous counter tested in Lab 06?",
+      "expected_facts": ["1 kilohertz"],
+      "expected_citations": ["Blocks 10-12"],
+      "allow_refusal": false,
+      "top_k": 6
+    },
+    {
+      "id": "tc_06",
+      "category": "multi_chunk",
+      "question": "Summarize the three laboratory experiments covered by this report.",
+      "expected_facts": [
+        "4-to-1 multiplexer in Lab 04",
+        "inverting operational amplifier in Lab 05",
+        "4-bit synchronous counter in Lab 06"
+      ],
+      "expected_citations": ["Blocks 1-3"],
+      "allow_refusal": false,
+      "top_k": 6
+    },
+    {
+      "id": "tc_07",
+      "category": "multi_chunk",
+      "question": "How did the experimental setup affect the amplifier measurements, according to the limitations section?",
+      "expected_facts": [
+        "breadboard contact resistance",
+        "variation of up to 0.4 percent"
+      ],
+      "expected_citations": ["Blocks 13-15"],
+      "allow_refusal": false,
+      "top_k": 6
+    },
+    {
+      "id": "tc_08",
+      "category": "multi_chunk",
+      "question": "What future work does the report propose?",
+      "expected_facts": [
+        "printed circuit board",
+        "industrial temperature range",
+        "automated data-logging"
+      ],
+      "expected_citations": ["Blocks 13-15"],
+      "allow_refusal": false,
+      "top_k": 6
+    },
+    {
+      "id": "tc_09",
+      "category": "multi_chunk",
+      "question": "Compare the verification approach used in Lab 04 with the fault condition observed in Lab 06.",
+      "expected_facts": [
+        "truth table verified for all sixteen combinations",
+        "clear line asserted for fewer than 20 nanoseconds"
+      ],
+      "expected_citations": ["Blocks 4-12"],
+      "allow_refusal": false,
+      "top_k": 6
+    },
+    {
+      "id": "tc_10",
+      "category": "citation_integrity",
+      "question": "Which resistors set the gain of the inverting amplifier, and what is the ideal gain ratio?",
+      "expected_facts": [
+        "input resistor of 10 kilo-ohms",
+        "feedback resistor of 100 kilo-ohms",
+        "ratio of feedback to input resistance"
+      ],
+      "expected_citations": ["Blocks 7-9"],
+      "allow_refusal": false,
+      "top_k": 6
+    },
+    {
+      "id": "tc_11",
+      "category": "citation_integrity",
+      "question": "Which measurement equipment was used across the experiments?",
+      "expected_facts": [
+        "Rigol DS1104Z oscilloscope",
+        "DP832 power supply",
+        "Fluke 87V digital multimeter"
+      ],
+      "expected_citations": ["Blocks 1-3"],
+      "allow_refusal": false,
+      "top_k": 6
+    },
+    {
+      "id": "tc_12",
+      "category": "citation_integrity",
+      "question": "What propagation delay was measured for the multiplexer, and what counter behavior confirmed the datasheet minimum pulse width?",
+      "expected_facts": [
+        "14 nanoseconds",
+        "clear line asserted for fewer than 20 nanoseconds"
+      ],
+      "expected_citations": ["Blocks 4-12"],
+      "allow_refusal": false,
+      "top_k": 6
+    },
+    {
+      "id": "tc_13",
+      "category": "unanswerable",
+      "question": "What was the total cost of the components used in the three labs?",
+      "expected_facts": [],
+      "expected_citations": [],
+      "allow_refusal": true,
+      "top_k": 6
+    },
+    {
+      "id": "tc_14",
+      "category": "unanswerable",
+      "question": "Which graduate student supervised the laboratory sessions?",
+      "expected_facts": [],
+      "expected_citations": [],
+      "allow_refusal": true,
+      "top_k": 6
+    },
+    {
+      "id": "tc_15",
+      "category": "unanswerable",
+      "question": "How many pages does the full datasheet for the TL072 contain?",
+      "expected_facts": [],
+      "expected_citations": [],
+      "allow_refusal": true,
+      "top_k": 6
+    }
+  ]
+}

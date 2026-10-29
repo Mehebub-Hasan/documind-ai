@@ -13,6 +13,17 @@ load_dotenv(dotenv_path=ENV_PATH)
 OPENAI_DEFAULT_MODEL = "text-embedding-3-small"
 LOCAL_DEFAULT_MODEL = "all-MiniLM-L6-v2"
 
+# Anti-hallucination guardrail: minimum cosine similarity (IndexFlatIP over
+# L2-normalized vectors) for a retrieved chunk to be trusted as context. The
+# query router drops the request to the LLM when the top result scores below
+# this. Calibrated against all-MiniLM-L6-v2 on the benchmark corpora:
+# unrelated queries score <=0.11, related ones >=0.16 (measured 0.16-0.6),
+# so anything near or below ~0.1 is noise. This gate is a cheap first filter
+# only — the LLM's grounding prompt is the real refusal authority for
+# on-topic-but-unanswerable questions, which can score above unrelated ones.
+# Tune per deployment via the MIN_SIMILARITY_SCORE env var.
+MIN_SIMILARITY_SCORE = float(os.getenv("MIN_SIMILARITY_SCORE", "0.13"))
+
 # Module-level cache so the SentenceTransformers model is loaded (and
 # downloaded) once per process, not once per document.
 _local_model_cache: dict = {}

@@ -13,6 +13,13 @@ const ACCEPTED_EXTENSIONS = [".pdf", ".docx"];
 const NOT_FOUND_ANSWER =
   "The document does not contain enough information to answer this question.";
 
+// Returned by the backend's similarity gate when retrieval relevance is
+// below MIN_SIMILARITY_SCORE (the LLM is never called).
+const BELOW_THRESHOLD_ANSWER =
+  "I cannot find this information in the provided document.";
+
+const REFUSAL_ANSWERS = [NOT_FOUND_ANSWER, BELOW_THRESHOLD_ANSWER];
+
 const STARTER_PROMPTS = [
   "Summarize key findings",
   "Extract action items & dates",
@@ -1188,14 +1195,14 @@ export default function Home() {
   // ---- Auth view ----
 
   if (!sessionChecked) {
-    return <main className="h-screen w-screen bg-page" />;
+    return <main className="h-[100dvh] w-full bg-page" />;
   }
 
   if (!user) {
     const isLogin = authMode === "login";
 
     return (
-      <main className="grid h-screen w-screen grid-cols-1 overflow-hidden bg-[#FBFBFA] md:grid-cols-12">
+      <main className="grid h-[100dvh] w-full grid-cols-1 overflow-hidden bg-[#FBFBFA] md:grid-cols-12">
         {/* Left: brand showcase */}
         <section className="hidden flex-col justify-between overflow-hidden border-r border-black/[0.06] p-10 md:flex md:col-span-7 lg:p-14">
           <div className="flex items-center gap-2.5">
@@ -1232,7 +1239,7 @@ export default function Home() {
         </section>
 
         {/* Right: auth card */}
-        <section className="col-span-1 flex items-center justify-center p-6 md:col-span-5">
+        <section className="col-span-1 flex items-center justify-center p-4 sm:p-6 md:col-span-5">
           <div className="animate-fade-up w-full max-w-[400px] rounded-2xl border border-black/[0.08] bg-white p-8 shadow-[0_12px_32px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.05)]">
             <div className="mb-6 flex items-center gap-2.5 md:hidden">
               <LogoMark size={26} />
@@ -1567,7 +1574,7 @@ export default function Home() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
-          <p className="font-mono text-xs font-medium text-accent">
+          <p className="break-words font-mono text-xs font-medium text-accent">
             {referenceLine(chunk)}
             {chunk.score !== undefined && (
               <span className="ml-2 font-normal text-faint">
@@ -1580,7 +1587,7 @@ export default function Home() {
             ref={excerptRef}
             className="mt-3 rounded-xl border border-hairline bg-surface p-5 shadow-[var(--shadow-card)]"
           >
-            <p className="font-serif text-[15px] leading-8 text-ink">
+            <p className="whitespace-pre-wrap break-words font-serif text-[15px] leading-8 text-ink">
               <mark className="rounded bg-evidence px-0.5 text-ink">
                 {chunk.text}
               </mark>
@@ -1596,7 +1603,7 @@ export default function Home() {
             </p>
           </div>
 
-          <p className="mt-4 px-1 font-mono text-[10px] leading-5 text-faint">
+          <p className="mt-4 hidden px-1 font-mono text-[10px] leading-5 text-faint sm:block">
             Use ← / → to step through sources.
           </p>
         </div>
@@ -1623,7 +1630,7 @@ export default function Home() {
   );
 
   return (
-    <main className="flex h-screen w-screen overflow-hidden bg-page text-ink">
+    <main className="flex h-[100dvh] w-full max-w-full overflow-hidden overflow-x-hidden bg-page text-ink">
       <input
         ref={fileInputRef}
         type="file"
@@ -1665,7 +1672,7 @@ export default function Home() {
 
       {/* Center pane */}
       <section className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-hairline px-4 sm:px-5">
+        <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-hairline px-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-2">
             <button
               onClick={() => setLibraryOpen(true)}
@@ -1675,9 +1682,13 @@ export default function Home() {
               <LibraryIcon />
             </button>
 
-            <span className="shrink-0 text-xs text-muted">Workspace</span>
-            <span className="text-hairstrong">/</span>
-            <span className="truncate text-xs font-medium text-ink">
+            <span className="hidden shrink-0 text-xs text-muted sm:inline">
+              Workspace
+            </span>
+            <span aria-hidden="true" className="hidden text-hairstrong sm:inline">
+              /
+            </span>
+            <span className="min-w-0 max-w-[200px] truncate text-xs font-medium text-ink sm:max-w-md">
               {documentId ? cleanTitle(filename) : "Overview"}
             </span>
           </div>
@@ -1709,7 +1720,7 @@ export default function Home() {
         {error && (
           <div
             role="alert"
-            className="shrink-0 border-b border-hairline bg-panel px-4 py-2.5 text-sm text-ink sm:px-5"
+            className="shrink-0 border-b border-hairline bg-panel px-3 py-2.5 text-sm text-ink sm:px-6"
           >
             {error}
           </div>
@@ -1717,7 +1728,7 @@ export default function Home() {
 
         {!documentId ? (
           /* Empty workspace hub */
-          <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-6 py-10">
+          <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-3 py-8 sm:px-6 sm:py-10 md:px-8">
             <div className="w-full max-w-xl">
               <h1 className="text-center font-serif text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
                 What would you like to analyze?
@@ -1839,9 +1850,9 @@ export default function Home() {
                         selectDocument(documents[0]);
                         setQuestion(prompt);
                       }}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-hairline bg-surface px-4 py-3 text-left text-sm text-ink transition-colors duration-200 hover:border-hairstrong disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex items-center justify-between gap-3 rounded-xl border border-hairline bg-surface p-3 text-left text-xs text-ink transition-colors duration-200 hover:border-hairstrong disabled:cursor-not-allowed disabled:opacity-50 sm:p-4 sm:text-sm"
                     >
-                      <span>{prompt}</span>
+                      <span className="min-w-0">{prompt}</span>
                       <span className="shrink-0 text-accent">
                         <ArrowIcon />
                       </span>
@@ -1855,7 +1866,7 @@ export default function Home() {
                 )}
               </div>
 
-              <div className="mt-7 grid grid-cols-3 gap-2.5">
+              <div className="mt-7 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
                 {WORKSPACE_STEPS.map((step, index) => (
                   <div
                     key={step}
@@ -1873,7 +1884,7 @@ export default function Home() {
         ) : (
           /* Active document conversation */
           <>
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-20 pt-8 sm:px-6">
+            <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-10 pt-6 sm:px-6 sm:pt-8 md:px-8">
               <div className="mx-auto w-full max-w-[740px]">
                 {!asking && chatHistory.length === 0 ? (
                   <div className="flex flex-col items-center pt-4 text-center sm:pt-10">
@@ -1885,7 +1896,7 @@ export default function Home() {
                     </p>
 
                     {docSummaryLoading ? (
-                      <div className="mt-6 w-full rounded-xl border border-hairline bg-surface px-5 py-4 text-left shadow-[var(--shadow-card)]">
+                      <div className="mx-auto mt-6 w-full max-w-3xl rounded-xl border border-hairline bg-surface px-5 py-4 text-left shadow-[var(--shadow-card)]">
                         <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-faint">
                           Generating document summary…
                         </p>
@@ -1895,7 +1906,7 @@ export default function Home() {
                         </div>
                       </div>
                     ) : docSummary ? (
-                      <div className="mt-6 w-full rounded-xl border border-hairline bg-surface text-left shadow-[var(--shadow-card)]">
+                      <div className="mx-auto mt-6 w-full max-w-3xl rounded-xl border border-hairline bg-surface text-left shadow-[var(--shadow-card)]">
                         <div className="flex items-center justify-between gap-3 border-b border-hairline px-5 py-3.5">
                           <p className="flex min-w-0 items-center gap-2 font-serif text-sm font-semibold text-ink">
                             <span aria-hidden="true">📄</span>
@@ -1907,7 +1918,7 @@ export default function Home() {
                         </div>
 
                         <div className="px-5 py-4">
-                          <p className="font-serif text-[13px] leading-6 text-ink">
+                          <p className="whitespace-pre-wrap break-words font-serif text-sm leading-relaxed text-ink sm:text-[15px]">
                             {docSummary.overview}
                           </p>
 
@@ -1920,7 +1931,7 @@ export default function Home() {
                                 <span className="mt-1 font-mono text-[11px] font-semibold text-accent">
                                   {String(index + 1).padStart(2, "0")}
                                 </span>
-                                <p className="min-w-0 flex-1 text-[13px] leading-6 text-muted">
+                                <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-muted">
                                   {item.text}
                                 </p>
                                 <span className="shrink-0 rounded-md border border-hairline bg-panel px-2 py-0.5 font-mono text-[10px] text-muted">
@@ -1932,7 +1943,7 @@ export default function Home() {
                         </div>
 
                         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-hairline px-5 py-3">
-                          <div className="flex flex-wrap gap-1.5">
+                          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                             {[
                               ...new Set(
                                 docSummary.takeaways.map((item) => item.source)
@@ -1946,7 +1957,7 @@ export default function Home() {
                               </span>
                             ))}
                           </div>
-                          <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-faint">
+                          <p className="hidden font-mono text-[10px] uppercase tracking-[0.12em] text-faint sm:block">
                             Auto-generated ·{" "}
                             {docSummary.method === "llm"
                               ? "AI summary"
@@ -1957,7 +1968,7 @@ export default function Home() {
                     ) : (
                       summary &&
                       summary.preview_text && (
-                        <div className="mt-6 w-full rounded-xl border border-hairline bg-surface p-5 text-left shadow-[var(--shadow-card)]">
+                        <div className="mx-auto mt-6 w-full max-w-3xl rounded-xl border border-hairline bg-surface p-5 text-left shadow-[var(--shadow-card)]">
                           <div className="flex items-center justify-between gap-3">
                             <p className="truncate font-serif text-sm font-semibold text-ink">
                               {cleanTitle(filename)}
@@ -1981,7 +1992,7 @@ export default function Home() {
                       )
                     )}
 
-                    <div className="mt-6 grid w-full grid-cols-1 gap-2.5 sm:grid-cols-2">
+                    <div className="mt-6 grid w-full grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3">
                       {STARTER_PROMPTS.map((prompt) => (
                         <button
                           key={prompt}
@@ -1989,9 +2000,9 @@ export default function Home() {
                             setQuestion(prompt);
                             questionInputRef.current?.focus();
                           }}
-                          className="group flex items-center justify-between gap-3 rounded-lg border border-hairline bg-surface px-4 py-3 text-left text-sm text-ink transition-colors duration-200 hover:border-hairstrong"
+                          className="group flex items-center justify-between gap-3 rounded-xl border border-hairline bg-surface p-3 text-left text-xs text-ink transition-colors duration-200 hover:border-hairstrong sm:p-4 sm:text-sm"
                         >
-                          <span>{prompt}</span>
+                          <span className="min-w-0">{prompt}</span>
                           <span className="shrink-0 text-accent opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                             <ArrowIcon />
                           </span>
@@ -2002,14 +2013,15 @@ export default function Home() {
                 ) : (
                   <div className="space-y-8">
                     {[...chatHistory].reverse().map((item) => {
-                      const isNotFound =
-                        item.answer.trim() === NOT_FOUND_ANSWER;
+                      const isNotFound = REFUSAL_ANSWERS.includes(
+                        item.answer.trim()
+                      );
                       const hasInlineCites = /\[\d{1,2}\]/.test(item.answer);
 
                       return (
                         <div key={item.id} className="animate-fade-up">
                           <div className="flex justify-end">
-                            <p className="max-w-[80%] rounded-2xl rounded-tr-sm border border-hairline bg-surface px-4 py-3 text-sm leading-relaxed text-ink">
+                            <p className="max-w-[80%] break-words rounded-2xl rounded-tr-sm border border-hairline bg-surface px-4 py-3 text-sm leading-relaxed text-ink">
                               {item.question}
                             </p>
                           </div>
@@ -2139,10 +2151,10 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Composer */}
-            <div className="shrink-0 px-4 pb-4 pt-1 sm:px-6">
-              <div className="mx-auto w-full max-w-[740px]">
-                <div className="flex items-end gap-3 rounded-2xl border border-hairline bg-surface px-4 py-3 shadow-[var(--shadow-card)] transition-colors focus-within:border-hairstrong">
+            {/* Composer — sticky bottom bar with safe-area padding */}
+            <div className="sticky bottom-0 z-30 w-full shrink-0 border-t border-hairline bg-surface/95 px-3 pb-[env(safe-area-inset-bottom,0.75rem)] pt-2 backdrop-blur sm:px-6 sm:py-3">
+              <div className="mx-auto w-full max-w-3xl">
+                <div className="flex items-center gap-2">
                   <textarea
                     ref={questionInputRef}
                     value={question}
@@ -2151,14 +2163,14 @@ export default function Home() {
                     placeholder="Ask a question…"
                     rows={1}
                     aria-label="Question"
-                    className="max-h-40 min-h-9 flex-1 resize-none bg-transparent py-1.5 text-sm leading-6 text-ink placeholder:text-faint focus:outline-none"
+                    className="max-h-40 min-h-9 w-full flex-1 resize-none rounded-xl border border-hairline bg-surface px-3.5 py-2.5 text-base leading-6 text-ink placeholder:text-faint transition-colors focus:border-hairstrong focus:outline-none sm:text-sm"
                   />
 
                   <button
                     onClick={handleAsk}
                     disabled={asking || !documentId || !question.trim()}
                     aria-label="Send question"
-                    className="grid h-9 w-9 shrink-0 place-items-center self-end rounded-lg bg-primary text-onprimary transition-colors duration-200 hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-30"
+                    className="grid shrink-0 place-items-center rounded-xl bg-primary p-2.5 text-onprimary transition-colors duration-200 hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-30"
                   >
                     <SendIcon />
                   </button>
@@ -2187,7 +2199,7 @@ export default function Home() {
               aria-hidden="true"
             />
             <div
-              className="animate-sheet relative mx-auto flex max-h-[70vh] max-w-xl flex-col overflow-hidden rounded-t-2xl border-x border-t border-hairline bg-panel shadow-2xl"
+              className="animate-sheet relative mx-auto flex max-h-[70dvh] max-w-xl flex-col overflow-hidden rounded-t-2xl border-x border-t border-hairline bg-panel shadow-2xl"
               role="dialog"
               aria-label="Source"
             >

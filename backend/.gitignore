@@ -5,4 +5,4 @@ __pycache__/
 .pytest_cache/
 uploads/
 vector_data/
-*.log
+*.logeval/eval_report.json

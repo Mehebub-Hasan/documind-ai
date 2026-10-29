@@ -1,0 +1,40 @@
+{
+  "description": "RAG Triad benchmark cases modeled after a technical lab report (see BENCHMARK_DOCUMENT in runner.py). Direct extraction questions have their answers on a single page; synthesis questions require combining multiple pages; the out-of-scope case verifies refusal and groundedness behavior.",
+  "cases": [
+    {
+      "id": "direct-01",
+      "category": "direct_extraction",
+      "question": "How many soil samples were used in the calibration experiment?",
+      "expected_refusal": false,
+      "top_k": 6
+    },
+    {
+      "id": "direct-02",
+      "category": "direct_extraction",
+      "question": "What is the mean absolute error reported for the calibrated sensor?",
+      "expected_refusal": false,
+      "top_k": 6
+    },
+    {
+      "id": "synthesis-01",
+      "category": "multi_block_synthesis",
+      "question": "Summarize the calibration methodology, including the reference points used and how long readings were logged.",
+      "expected_refusal": false,
+      "top_k": 6
+    },
+    {
+      "id": "synthesis-02",
+      "category": "multi_block_synthesis",
+      "question": "What do the results say about measurement accuracy, and which limitation remains uncharacterized?",
+      "expected_refusal": false,
+      "top_k": 6
+    },
+    {
+      "id": "out-of-scope-01",
+      "category": "unanswerable",
+      "question": "What was the total budget of the research grant that funded this project?",
+      "expected_refusal": true,
+      "top_k": 6
+    }
+  ]
+}

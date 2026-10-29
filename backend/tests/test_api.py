@@ -1,5 +1,6 @@
 import main as main_module
-from conftest import build_docx_bytes, make_user
+from chatbot import BELOW_THRESHOLD_ANSWER
+from conftest import build_docx_bytes, build_pdf_bytes, make_user
 
 PDF_CONTENT_TYPE = "application/pdf"
 DOCX_CONTENT_TYPE = (
@@ -387,3 +388,168 @@ class TestDocumentLifecycle:
             ).status_code
             == 404
         )
+
+
+class TestAskGuardrail:
+    """
+    FAISS similarity gate: off-document questions must never reach the LLM.
+    """
+
+    def test_below_threshold_drops_query_without_llm(
+        self, client, pdf_bytes, monkeypatch, caplog
+    ):
+        import logging
+
+        import document_store
+
+        user = make_user(client)
+        document_id = upload(
+            client, "/upload-pdf", "sample.pdf", pdf_bytes, PDF_CONTENT_TYPE, user["headers"]
+        ).json()["document_id"]
+
+        # Controlled retrieval result: top score below the gate. (The 8-dim
+        # stub embeddings collide unpredictably, so the search output is
+        # mocked rather than relying on a specific query scoring low.)
+        class _FakeStore:
+            def search(self, query, top_k=5):
+                return [
+                    {
+                        "score": 0.31,
+                        "chunk_id": "page_1_chunk_0",
+                        "page": 1,
+                        "text": "DocuMind test document.",
+                    }
+                ]
+
+        monkeypatch.setattr(
+            document_store, "get_vector_store", lambda db, document: _FakeStore()
+        )
+
+        def _boom(question, retrieved_chunks):
+            raise AssertionError("LLM must not be called below the threshold")
+
+        monkeypatch.setattr(main_module, "answer_question_with_deepseek", _boom)
+        monkeypatch.setattr(main_module, "MIN_SIMILARITY_SCORE", 0.50)
+
+        with caplog.at_level(logging.WARNING, logger="documind.guardrail"):
+            response = client.post(
+                "/ask",
+                json={
+                    "document_id": document_id,
+                    "question": "What mentions apple?",
+                    "top_k": 3,
+                },
+                headers=user["headers"],
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["answer"] == BELOW_THRESHOLD_ANSWER
+        assert data["grounded"] is False
+        assert data["sources"] == []
+        assert data["verification"] is None
+        assert "similarity score below threshold" in caplog.text
+
+    def test_above_threshold_reaches_llm_and_is_grounded(
+        self, client, monkeypatch
+    ):
+        # Single-token pages make the stub cosine similarity exactly 1.0.
+        zebra_pdf = build_pdf_bytes(
+            [
+                "zebra zebra zebra zebra",
+                "Migration patterns bring zebra herds to the river crossing.",
+            ]
+        )
+        user = make_user(client)
+        document_id = upload(
+            client, "/upload-pdf", "zebra.pdf", zebra_pdf, PDF_CONTENT_TYPE, user["headers"]
+        ).json()["document_id"]
+
+        calls = []
+
+        def _fake_answer(question, retrieved_chunks):
+            calls.append(question)
+            return "Zebras cross the river in herds [Page 2]."
+
+        monkeypatch.setattr(main_module, "answer_question_with_deepseek", _fake_answer)
+        monkeypatch.setattr(main_module, "MIN_SIMILARITY_SCORE", 0.50)
+
+        response = client.post(
+            "/ask",
+            json={
+                "document_id": document_id,
+                "question": "zebra",
+                "top_k": 3,
+            },
+            headers=user["headers"],
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert calls == ["zebra"]  # LLM was called exactly once
+        assert data["answer"] == "Zebras cross the river in herds [Page 2]."
+        assert data["grounded"] is True
+        assert data["sources"]
+
+    def test_hallucinated_citation_is_stripped_before_response(
+        self, client, monkeypatch
+    ):
+        zebra_pdf = build_pdf_bytes(
+            [
+                "zebra zebra zebra zebra",
+                "Migration patterns bring zebra herds to the river crossing.",
+            ]
+        )
+        user = make_user(client)
+        document_id = upload(
+            client, "/upload-pdf", "zebra.pdf", zebra_pdf, PDF_CONTENT_TYPE, user["headers"]
+        ).json()["document_id"]
+
+        monkeypatch.setattr(
+            main_module,
+            "answer_question_with_deepseek",
+            lambda question, retrieved_chunks: (
+                "Zebras cross the river [Page 2]. The herd flies to Mars [Blocks 50-60]."
+            ),
+        )
+        monkeypatch.setattr(main_module, "MIN_SIMILARITY_SCORE", 0.50)
+
+        response = client.post(
+            "/ask",
+            json={
+                "document_id": document_id,
+                "question": "zebra",
+                "top_k": 3,
+            },
+            headers=user["headers"],
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "[Blocks 50-60]" not in data["answer"]
+        assert "[Page 2]" in data["answer"]
+        assert data["grounded"] is False
+        assert data["verification"]["removed_citations"] == ["[Blocks 50-60]"]
+
+    def test_search_endpoint_stays_un_gated(self, client, pdf_bytes):
+        """
+        The raw /search inspection route intentionally returns below-threshold
+        results (with scores) — the gate only protects /ask.
+        """
+        user = make_user(client)
+        document_id = upload(
+            client, "/upload-pdf", "sample.pdf", pdf_bytes, PDF_CONTENT_TYPE, user["headers"]
+        ).json()["document_id"]
+
+        response = client.post(
+            "/search",
+            json={
+                "document_id": document_id,
+                "question": "quantum flux capacitor photon torpedo array",
+                "top_k": 3,
+            },
+            headers=user["headers"],
+        )
+
+        assert response.status_code == 200
+        assert response.json()["results"]  # still returned, scores attached

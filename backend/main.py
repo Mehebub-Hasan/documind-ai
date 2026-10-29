@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 import shutil
@@ -17,7 +18,12 @@ from auth import (
     hash_password,
     verify_password,
 )
-from chatbot import NOT_FOUND_ANSWER, answer_question_with_deepseek
+from chatbot import (
+    BELOW_THRESHOLD_ANSWER,
+    NOT_FOUND_ANSWER,
+    answer_question_with_deepseek,
+    verify_attributions,
+)
 from chunker import create_chunks_from_pages, create_chunks_from_units
 from database import get_db, init_db
 from docx_processor import (
@@ -31,7 +37,10 @@ import document_store
 from models import ChatMessage, Document, DocumentChunk, User
 from pdf_processor import extract_text_from_pdf, get_pdf_summary
 from summarizer import generate_document_summary
-from vector_store import VectorStore
+from vector_store import MIN_SIMILARITY_SCORE, VectorStore
+
+
+logger = logging.getLogger("documind.guardrail")
 
 
 app = FastAPI(
@@ -708,14 +717,40 @@ def ask_pdf(
 
         source_type = document.source_type
 
+        # ---- Anti-hallucination guardrails ----
+        # 1. No retrieval at all (empty query/index).
+        # 2. Similarity gate: when even the top result is below
+        #    MIN_SIMILARITY_SCORE cosine, the question is off-document —
+        #    refuse without spending an LLM call.
         if not retrieved_chunks:
             answer = NOT_FOUND_ANSWER
             sources = []
+            grounded = False
+            verification = None
+        elif retrieved_chunks[0].get("score", 0.0) < MIN_SIMILARITY_SCORE:
+            logger.warning(
+                "[RAG Guardrail] Query dropped: similarity score below "
+                "threshold (top score %.3f < %.2f).",
+                retrieved_chunks[0].get("score", 0.0),
+                MIN_SIMILARITY_SCORE,
+            )
+            answer = BELOW_THRESHOLD_ANSWER
+            sources = []
+            grounded = False
+            verification = None
         else:
-            answer = answer_question_with_deepseek(
+            raw_answer = answer_question_with_deepseek(
                 question=request.question,
                 retrieved_chunks=retrieved_chunks
             )
+
+            # 3. Post-generation check: citations and quotes must be
+            #    grounded in the retrieved chunks; hallucinated references
+            #    are stripped before the answer reaches the user.
+            verification = verify_attributions(raw_answer, retrieved_chunks)
+            answer = verification["cleaned_answer"]
+            grounded = verification["grounded"]
+
             sources = _build_source_references(source_type, retrieved_chunks)
 
         now = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -748,6 +783,16 @@ def ask_pdf(
             "source_type": source_type,
             "answer": answer,
             "sources": sources,
+            "grounded": grounded,
+            "verification": (
+                None
+                if verification is None
+                else {
+                    "removed_citations": verification["removed_citations"],
+                    "unverified_quotes": verification["unverified_quotes"],
+                    "flagged_sentences": verification["flagged_sentences"],
+                }
+            ),
             "retrieved_chunks": retrieved_chunks
         }
 

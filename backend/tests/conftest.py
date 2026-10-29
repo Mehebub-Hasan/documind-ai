@@ -29,6 +29,7 @@ from docx import Document
 import document_store
 from database import engine
 from main import app, UPLOAD_DIR
+import main as main_module
 from models import ChatMessage, Document as DocumentModel, DocumentChunk, User
 from vector_store import VectorStore
 
@@ -79,6 +80,18 @@ def disable_llm_calls(monkeypatch):
 
     monkeypatch.setattr("summarizer.get_deepseek_client", lambda: None)
     monkeypatch.setattr("chatbot.get_deepseek_client", lambda: None)
+
+
+@pytest.fixture(autouse=True)
+def relax_similarity_gate(monkeypatch):
+    """
+    Disable the FAISS similarity gate by default: the deterministic stub
+    embeddings produce far lower cosine scores than real embedding models,
+    so most API tests would be dropped by the guardrail. Tests that verify
+    the gate itself re-enable it with monkeypatch on main.MIN_SIMILARITY_SCORE.
+    """
+
+    monkeypatch.setattr(main_module, "MIN_SIMILARITY_SCORE", -1.0)
 
 
 @pytest.fixture(autouse=True)
