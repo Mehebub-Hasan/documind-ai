@@ -52,6 +52,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fastapi.testclient import TestClient
 
 from chatbot import is_refusal_answer
+from database import SessionLocal
 from eval.benchmark_documents import build_document_bytes
 from eval.metrics import (
     JUDGE_MODEL,
@@ -61,6 +62,7 @@ from eval.metrics import (
     score_groundedness,
 )
 from main import app
+from models import User
 
 EVAL_DIR = Path(__file__).resolve().parent
 
@@ -269,17 +271,54 @@ def evaluate_gates(aggregates: dict, results: list, thresholds: dict) -> list:
 # Pipeline + judging
 # ---------------------------------------------------------------------------
 
+def _fetch_verification_code(email: str) -> str:
+    """
+    Read the just-issued OTP from the database. Evaluation runs in console
+    mode (no SMTP credentials), so the code is only available server-side.
+    """
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == email).one()
+        return user.verification_code
+    finally:
+        db.close()
+
+
 def ensure_session(client: TestClient) -> dict:
-    """Log in as the eval user, registering the account on first run."""
+    """
+    Log in as the eval user and return Bearer headers.
+
+    With email verification (OTP) enabled, registration no longer returns
+    a token, so a fresh database follows the full signup path: register ->
+    read the stored verification code -> POST /auth/verify-email -> login.
+    Going through the real endpoint keeps this aligned with production.
+    """
 
     login = client.post("/auth/login", json=EVAL_USER)
 
     if login.status_code == 200:
         token = login.json()["token"]
     else:
-        registered = client.post("/auth/register", json=EVAL_USER)
-        registered.raise_for_status()
-        token = registered.json()["token"]
+        if login.status_code == 401:
+            # No account yet: register (issues a code, returns no token).
+            registered = client.post("/auth/register", json=EVAL_USER)
+            registered.raise_for_status()
+        elif login.status_code != 403:
+            login.raise_for_status()
+
+        # 401 after registering, or 403: the account exists but is
+        # unverified — verify it with the stored code.
+        code = _fetch_verification_code(EVAL_USER["email"])
+        verified = client.post(
+            "/auth/verify-email",
+            json={"email": EVAL_USER["email"], "code": code},
+        )
+        verified.raise_for_status()
+
+        login = client.post("/auth/login", json=EVAL_USER)
+        login.raise_for_status()
+        token = login.json()["token"]
 
     return {"Authorization": f"Bearer {token}"}
 
