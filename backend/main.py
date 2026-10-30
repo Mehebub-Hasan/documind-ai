@@ -1,10 +1,11 @@
+import hmac
 import json
 import logging
 import os
 import re
 import shutil
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
@@ -37,10 +38,17 @@ import document_store
 from models import ChatMessage, Document, DocumentChunk, User
 from pdf_processor import extract_text_from_pdf, get_pdf_summary
 from summarizer import generate_document_summary
+from utils.email_service import generate_otp, send_verification_email
 from vector_store import MIN_SIMILARITY_SCORE, VectorStore
 
 
 logger = logging.getLogger("documind.guardrail")
+
+# Surface documind.* logs (guardrail drops, email console-mode codes) on the
+# console in development; deployment platforms configure their own handlers.
+logging.basicConfig(level=logging.INFO)
+
+VERIFICATION_CODE_TTL_MINUTES = 10
 
 
 app = FastAPI(
@@ -115,6 +123,15 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class VerifyEmailRequest(BaseModel):
+    email: str
+    code: str
+
+
+class ResendCodeRequest(BaseModel):
+    email: str
+
+
 class SearchRequest(BaseModel):
     document_id: str
     question: str
@@ -146,8 +163,27 @@ def _public_user(user: User) -> dict:
         "id": user.id,
         "email": user.email,
         "name": user.name,
+        "is_verified": bool(user.is_verified),
         "created_at": user.created_at.isoformat() if user.created_at else None,
     }
+
+
+def _issue_verification_code(db: Session, user: User) -> None:
+    """
+    Store a fresh 6-digit code (10-minute expiry) on the user and send it.
+    Delivery failures never fail the request: the code is persisted, and
+    the user can use resend-code.
+    """
+
+    user.is_verified = False
+    user.verification_code = generate_otp()
+    user.code_expires_at = (
+        datetime.now(timezone.utc).replace(tzinfo=None)
+        + timedelta(minutes=VERIFICATION_CODE_TTL_MINUTES)
+    )
+    db.commit()
+
+    send_verification_email(user.email, user.verification_code)
 
 
 def _parse_json(raw, default):
@@ -332,7 +368,8 @@ def _process_and_store(
 @app.post("/auth/register")
 def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     """
-    Create a new user account and return a JWT token for it.
+    Create (or refresh) an unverified account and email a 6-digit
+    verification code. No token is returned until the email is verified.
     """
 
     email = payload.email.strip().lower()
@@ -356,24 +393,107 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
 
     existing = db.query(User).filter(User.email == email).first()
 
-    if existing:
+    if existing and existing.is_verified:
         raise HTTPException(
-            status_code=409,
-            detail="An account with this email already exists."
+            status_code=400,
+            detail="An account with this email already exists. Please sign in."
         )
 
-    user = User(
-        email=email,
-        name=name,
-        password_hash=hash_password(password)
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    if existing:
+        # Unverified leftover registration: refresh the details and issue a
+        # new code instead of blocking the signup.
+        user = existing
+        user.name = name
+        user.password_hash = hash_password(password)
+    else:
+        user = User(email=email, name=name, password_hash=hash_password(password))
+        db.add(user)
+
+    _issue_verification_code(db, user)
 
     return {
-        "token": create_access_token(user),
-        "user": _public_user(user)
+        "message": "Verification code sent to email",
+        "email": email
+    }
+
+
+@app.post("/auth/verify-email")
+def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)):
+    """
+    Verify a signup with the 6-digit code emailed to the user. On success
+    the account is activated and the code is cleared.
+    """
+
+    email = payload.email.strip().lower()
+    code = payload.code.strip()
+
+    user = db.query(User).filter(User.email == email).first()
+
+    if user is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid verification code."
+        )
+
+    if user.is_verified:
+        raise HTTPException(
+            status_code=400,
+            detail="Email is already verified. Please sign in."
+        )
+
+    if (
+        not user.verification_code
+        or not user.code_expires_at
+        or user.code_expires_at
+        < datetime.now(timezone.utc).replace(tzinfo=None)
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Verification code has expired. Please request a new one."
+        )
+
+    if not hmac.compare_digest(user.verification_code, code):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid verification code."
+        )
+
+    user.is_verified = True
+    user.verification_code = None
+    user.code_expires_at = None
+    db.commit()
+
+    return {"message": "Email verified successfully"}
+
+
+@app.post("/auth/resend-code")
+def resend_code(payload: ResendCodeRequest, db: Session = Depends(get_db)):
+    """
+    Issue a fresh verification code when the previous one expired or never
+    arrived. Only unverified accounts can request codes.
+    """
+
+    email = payload.email.strip().lower()
+
+    user = db.query(User).filter(User.email == email).first()
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found."
+        )
+
+    if user.is_verified:
+        raise HTTPException(
+            status_code=400,
+            detail="Email is already verified. Please sign in."
+        )
+
+    _issue_verification_code(db, user)
+
+    return {
+        "message": "Verification code sent to email",
+        "email": email
     }
 
 
@@ -391,6 +511,15 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=401,
             detail="Invalid email or password."
+        )
+
+    if not user.is_verified:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Email not verified. Please enter the 6-digit code we "
+                "emailed you, or request a new one."
+            )
         )
 
     return {

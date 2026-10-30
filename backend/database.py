@@ -45,7 +45,7 @@ def ensure_schema_upgrades(engine) -> None:
     Apply light in-place migrations for databases created before a column
     existed. create_all() only builds missing tables, so existing deployments
     (SQLite dev file or PostgreSQL on Render) would otherwise never gain the
-    new column.
+    new columns.
     """
 
     from sqlalchemy import inspect, text
@@ -53,16 +53,42 @@ def ensure_schema_upgrades(engine) -> None:
     inspector = inspect(engine)
     table_names = inspector.get_table_names()
 
-    if "documents" not in table_names:
-        return
+    if "documents" in table_names:
+        column_names = {
+            column["name"] for column in inspector.get_columns("documents")
+        }
 
-    column_names = {column["name"] for column in inspector.get_columns("documents")}
+        if "summary" not in column_names:
+            with engine.begin() as connection:
+                connection.execute(
+                    text("ALTER TABLE documents ADD COLUMN summary TEXT")
+                )
 
-    if "summary" not in column_names:
-        with engine.begin() as connection:
-            connection.execute(
-                text("ALTER TABLE documents ADD COLUMN summary TEXT")
-            )
+    if "users" in table_names:
+        column_names = {column["name"] for column in inspector.get_columns("users")}
+
+        if "is_verified" not in column_names:
+            with engine.begin() as connection:
+                # DEFAULT 1 backfills users that predate email verification
+                # as verified, so existing accounts are not locked out.
+                connection.execute(
+                    text(
+                        "ALTER TABLE users ADD COLUMN is_verified "
+                        "BOOLEAN NOT NULL DEFAULT 1"
+                    )
+                )
+
+        if "verification_code" not in column_names:
+            with engine.begin() as connection:
+                connection.execute(
+                    text("ALTER TABLE users ADD COLUMN verification_code VARCHAR")
+                )
+
+        if "code_expires_at" not in column_names:
+            with engine.begin() as connection:
+                connection.execute(
+                    text("ALTER TABLE users ADD COLUMN code_expires_at DATETIME")
+                )
 
 
 def init_db():

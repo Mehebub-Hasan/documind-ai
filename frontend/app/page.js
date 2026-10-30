@@ -651,11 +651,19 @@ export default function Home() {
   // ---- Auth state ----
   const [sessionChecked, setSessionChecked] = useState(false);
   const [user, setUser] = useState(null);
-  const [authMode, setAuthMode] = useState("login");
+  const [authMode, setAuthMode] = useState("login"); // "login" | "register" | "verify"
   const [authForm, setAuthForm] = useState({ name: "", email: "", password: "" });
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+
+  // Email verification (OTP) state
+  const [pendingVerifyEmail, setPendingVerifyEmail] = useState("");
+  const [verifyCode, setVerifyCode] = useState("");
+  const [verifyBusy, setVerifyBusy] = useState(false);
+  const [resendNotice, setResendNotice] = useState("");
+  const [verifiedNotice, setVerifiedNotice] = useState("");
+  const [needsVerification, setNeedsVerification] = useState(false);
 
   // ---- Theme ----
   const [theme, setTheme] = useState("light");
@@ -817,6 +825,7 @@ export default function Home() {
     event.preventDefault();
     setAuthError("");
     setAuthBusy(true);
+    setNeedsVerification(false);
 
     const endpoint = authMode === "login" ? "/auth/login" : "/auth/register";
     const payload =
@@ -831,6 +840,19 @@ export default function Home() {
     try {
       const response = await api.post(endpoint, payload);
 
+      if (authMode === "register") {
+        // Registration issues an email code, not a token — move to the
+        // verification step.
+        setPendingVerifyEmail(
+          response.data.email || authForm.email.trim().toLowerCase()
+        );
+        setVerifyCode("");
+        setResendNotice("");
+        setAuthForm((prev) => ({ ...prev, password: "" }));
+        setAuthMode("verify");
+        return;
+      }
+
       window.localStorage.setItem(TOKEN_STORAGE_KEY, response.data.token);
       window.localStorage.setItem(
         USER_STORAGE_KEY,
@@ -839,14 +861,67 @@ export default function Home() {
 
       setUser(response.data.user);
       setAuthForm({ name: "", email: "", password: "" });
+      setVerifiedNotice("");
       loadDocuments();
     } catch (err) {
       setAuthError(
         err.response?.data?.detail ||
           "Authentication failed. Make sure the backend is running."
       );
+      if (err.response?.status === 403) {
+        setNeedsVerification(true);
+      }
     } finally {
       setAuthBusy(false);
+    }
+  };
+
+  const handleVerifySubmit = async (event) => {
+    event.preventDefault();
+    setAuthError("");
+
+    if (verifyCode.trim().length !== 6) {
+      setAuthError("Enter the 6-digit code from your email.");
+      return;
+    }
+
+    setVerifyBusy(true);
+
+    try {
+      await api.post("/auth/verify-email", {
+        email: pendingVerifyEmail,
+        code: verifyCode.trim(),
+      });
+
+      setVerifiedNotice("Email verified successfully. Sign in to continue.");
+      setAuthForm((prev) => ({ ...prev, email: pendingVerifyEmail }));
+      setPendingVerifyEmail("");
+      setVerifyCode("");
+      setResendNotice("");
+      setAuthMode("login");
+    } catch (err) {
+      setAuthError(
+        err.response?.data?.detail || "Verification failed. Try again."
+      );
+    } finally {
+      setVerifyBusy(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    setAuthError("");
+    setResendNotice("");
+    setVerifyBusy(true);
+
+    try {
+      await api.post("/auth/resend-code", { email: pendingVerifyEmail });
+      setResendNotice(`A new code was sent to ${pendingVerifyEmail}.`);
+    } catch (err) {
+      setAuthError(
+        err.response?.data?.detail || "Could not resend the code. Try again."
+      );
+    } finally {
+      setVerifyBusy(false);
     }
   };
 
@@ -1248,45 +1323,149 @@ export default function Home() {
               </span>
             </div>
 
-            <h2 className="font-serif text-xl font-semibold tracking-tight text-[#111827]">
-              {isLogin ? "Welcome back" : "Create your account"}
-            </h2>
-            <p className="mt-1 text-[13px] text-[#6B7280]">
-              {isLogin
-                ? "Sign in to your document library."
-                : "One account for every document conversation."}
-            </p>
+            {verifiedNotice && (
+              <p
+                role="status"
+                className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-[13px] text-emerald-800"
+              >
+                {verifiedNotice}
+              </p>
+            )}
 
-            <div className="mt-5 grid grid-cols-2 gap-1 rounded-xl border border-black/[0.06] bg-zinc-100 p-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode("login");
-                  setAuthError("");
-                }}
-                className={`h-9 rounded-lg text-[13px] font-medium transition-colors duration-150 ${
-                  isLogin
-                    ? "bg-white text-zinc-900 shadow-xs"
-                    : "text-zinc-500 hover:text-zinc-800"
-                }`}
-              >
-                Sign in
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode("register");
-                  setAuthError("");
-                }}
-                className={`h-9 rounded-lg text-[13px] font-medium transition-colors duration-150 ${
-                  !isLogin
-                    ? "bg-white text-zinc-900 shadow-xs"
-                    : "text-zinc-500 hover:text-zinc-800"
-                }`}
-              >
-                Create account
-              </button>
-            </div>
+            {authMode === "verify" ? (
+              <>
+                <h2 className="font-serif text-xl font-semibold tracking-tight text-[#111827]">
+                  Verify your email
+                </h2>
+                <p className="mt-1 text-[13px] leading-5 text-[#6B7280]">
+                  We sent a 6-digit code to{" "}
+                  <span className="font-medium text-[#111827]">
+                    {pendingVerifyEmail}
+                  </span>
+                  . It expires in 10 minutes.
+                </p>
+
+                {resendNotice && (
+                  <p
+                    role="status"
+                    className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-[13px] text-emerald-800"
+                  >
+                    {resendNotice}
+                  </p>
+                )}
+
+                <form onSubmit={handleVerifySubmit} className="mt-5 space-y-3.5">
+                  <div>
+                    <label
+                      htmlFor="auth-code"
+                      className="mb-1.5 block text-[13px] font-medium text-zinc-700"
+                    >
+                      Verification code
+                    </label>
+                    <input
+                      id="auth-code"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      autoFocus
+                      maxLength={6}
+                      value={verifyCode}
+                      onChange={(event) =>
+                        setVerifyCode(
+                          event.target.value.replace(/\D/g, "").slice(0, 6)
+                        )
+                      }
+                      placeholder="000000"
+                      aria-label="6-digit verification code"
+                      className="h-12 w-full rounded-lg border border-zinc-200 bg-white text-center font-mono text-xl tracking-[0.5em] text-zinc-900 placeholder:text-zinc-300 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                    />
+                  </div>
+
+                  {authError && (
+                    <p
+                      role="alert"
+                      className="rounded-lg border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-[13px] text-zinc-800"
+                    >
+                      {authError}
+                    </p>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={verifyBusy || verifyCode.length !== 6}
+                    className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#111827] text-sm font-medium text-white shadow-sm transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {verifyBusy ? "Verifying…" : "Verify email"}
+                  </button>
+                </form>
+
+                <div className="mt-4 flex items-center justify-between text-xs">
+                  <button
+                    type="button"
+                    onClick={handleResendCode}
+                    disabled={verifyBusy}
+                    className="font-medium text-indigo-600 transition-colors hover:text-indigo-700 disabled:opacity-50"
+                  >
+                    Resend code
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingVerifyEmail("");
+                      setVerifyCode("");
+                      setResendNotice("");
+                      setAuthError("");
+                      setAuthMode("register");
+                    }}
+                    className="text-zinc-500 transition-colors hover:text-zinc-800"
+                  >
+                    Use a different email
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 className="font-serif text-xl font-semibold tracking-tight text-[#111827]">
+                  {isLogin ? "Welcome back" : "Create your account"}
+                </h2>
+                <p className="mt-1 text-[13px] text-[#6B7280]">
+                  {isLogin
+                    ? "Sign in to your document library."
+                    : "One account for every document conversation."}
+                </p>
+
+                <div className="mt-5 grid grid-cols-2 gap-1 rounded-xl border border-black/[0.06] bg-zinc-100 p-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode("login");
+                      setAuthError("");
+                      setNeedsVerification(false);
+                    }}
+                    className={`h-9 rounded-lg text-[13px] font-medium transition-colors duration-150 ${
+                      isLogin
+                        ? "bg-white text-zinc-900 shadow-xs"
+                        : "text-zinc-500 hover:text-zinc-800"
+                    }`}
+                  >
+                    Sign in
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode("register");
+                      setAuthError("");
+                      setNeedsVerification(false);
+                    }}
+                    className={`h-9 rounded-lg text-[13px] font-medium transition-colors duration-150 ${
+                      !isLogin
+                        ? "bg-white text-zinc-900 shadow-xs"
+                        : "text-zinc-500 hover:text-zinc-800"
+                    }`}
+                  >
+                    Create account
+                  </button>
+                </div>
 
             <form onSubmit={handleAuthSubmit} className="mt-5 space-y-3.5">
               {!isLogin && (
@@ -1389,6 +1568,24 @@ export default function Home() {
                 </p>
               )}
 
+              {needsVerification && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPendingVerifyEmail(
+                      authForm.email.trim().toLowerCase()
+                    );
+                    setVerifyCode("");
+                    setResendNotice("");
+                    setAuthError("");
+                    setAuthMode("verify");
+                  }}
+                  className="text-[13px] font-medium text-indigo-600 transition-colors hover:text-indigo-700"
+                >
+                  Enter your verification code →
+                </button>
+              )}
+
               <button
                 type="submit"
                 disabled={authBusy}
@@ -1410,6 +1607,8 @@ export default function Home() {
             <p className="mt-5 text-center text-xs leading-5 text-[#6B7280]">
               Your documents are private to your account.
             </p>
+              </>
+            )}
           </div>
         </section>
       </main>

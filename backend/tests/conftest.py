@@ -27,7 +27,8 @@ import fitz
 from docx import Document
 
 import document_store
-from database import engine
+from auth import create_access_token
+from database import SessionLocal, engine
 from main import app, UPLOAD_DIR
 import main as main_module
 from models import ChatMessage, Document as DocumentModel, DocumentChunk, User
@@ -126,9 +127,24 @@ def client():
         yield test_client
 
 
+@pytest.fixture(autouse=True)
+def disable_smtp(monkeypatch):
+    """
+    Tests never deliver email: send_verification_email is stubbed out even
+    if a developer's .env carries real SMTP credentials. Codes land in the
+    database and tests assert on those.
+    """
+
+    monkeypatch.setattr(
+        "utils.email_service.send_verification_email", lambda email, code: False
+    )
+
+
 def make_user(client, email=None, password="Password123!", name="Test User"):
     """
-    Register a fresh user and return its credentials, token, and headers.
+    Register a fresh account, mark it verified directly in the database
+    (tests skip the email round-trip), and mint a token. Returns
+    credentials, token, auth headers, and the public profile.
     """
 
     email = email or f"user-{uuid.uuid4().hex[:12]}@example.com"
@@ -140,15 +156,32 @@ def make_user(client, email=None, password="Password123!", name="Test User"):
 
     assert response.status_code == 200, response.text
 
-    data = response.json()
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        assert user is not None
+
+        user.is_verified = True
+        db.commit()
+        db.refresh(user)
+
+        token = create_access_token(user)
+        profile = {
+            "id": user.id,
+            "email": user.email,
+            "name": user.name,
+            "is_verified": bool(user.is_verified),
+        }
+    finally:
+        db.close()
 
     return {
         "email": email,
         "password": password,
         "name": name,
-        "token": data["token"],
-        "user": data["user"],
-        "headers": {"Authorization": f"Bearer {data['token']}"},
+        "token": token,
+        "user": profile,
+        "headers": {"Authorization": f"Bearer {token}"},
     }
 
 

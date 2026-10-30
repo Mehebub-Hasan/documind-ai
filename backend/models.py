@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from database import Base
@@ -24,6 +24,13 @@ class User(Base):
     name = Column(String, nullable=False)
     password_hash = Column(String, nullable=False)
     created_at = Column(DateTime, default=utcnow, nullable=False)
+
+    # Email verification (6-digit OTP). is_verified is Python-side False so
+    # new signups start unverified; the startup migration backfills rows
+    # that predate the feature to True.
+    is_verified = Column(Boolean, nullable=False, default=False)
+    verification_code = Column(String, nullable=True)
+    code_expires_at = Column(DateTime, nullable=True)
 
     documents = relationship("Document", back_populates="user")
 

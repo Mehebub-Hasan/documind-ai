@@ -83,6 +83,14 @@ JWT_SECRET_KEY=change-me-to-a-long-random-string
 
 # Optional: allow extra CORS origins in production
 # ALLOWED_ORIGINS=https://your-frontend-domain.com
+
+# Email verification (6-digit OTP on signup). Without SMTP_USERNAME /
+# SMTP_PASSWORD the backend runs in console mode: codes are written to the
+# server log instead of being emailed, and signup still works.
+# SMTP_SERVER=smtp.gmail.com
+# SMTP_PORT=587
+# SMTP_USERNAME=your_address@gmail.com
+# SMTP_PASSWORD=your_gmail_app_password
 ```
 
 Notes:

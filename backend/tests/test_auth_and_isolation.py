@@ -1,13 +1,27 @@
 import uuid
 
+from database import SessionLocal
 import document_store
+from models import User as UserModel
 from conftest import make_user
 from test_api import PDF_CONTENT_TYPE, upload
 
 
+def _get_user_row(email):
+    db = SessionLocal()
+    try:
+        return (
+            db.query(UserModel).filter(UserModel.email == email).first()
+        )
+    finally:
+        db.close()
+
+
 class TestRegistrationAndLogin:
 
-    def test_register_returns_token_and_profile(self, client):
+    def test_register_issues_verification_code(self, client):
+        from datetime import datetime, timezone
+
         response = client.post(
             "/auth/register",
             json={
@@ -19,14 +33,19 @@ class TestRegistrationAndLogin:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["token"]
-        assert data["user"]["email"] == "alice@example.com"
-        assert data["user"]["name"] == "Alice"
-        assert data["user"]["id"]
-        assert "password" not in data["user"]
-        assert "password_hash" not in str(data)
+        assert data["message"] == "Verification code sent to email"
+        assert data["email"] == "alice@example.com"
+        assert "token" not in data  # unverified: no token yet
 
-    def test_register_rejects_duplicate_email(self, client):
+        user = _get_user_row("alice@example.com")
+        assert user.is_verified is False
+        assert user.verification_code and len(user.verification_code) == 6
+        assert user.verification_code.isdigit()
+        assert user.code_expires_at > datetime.now(timezone.utc).replace(
+            tzinfo=None
+        )
+
+    def test_register_rejects_verified_email_allows_unverified_retry(self, client):
         payload = {
             "email": "duplicate@example.com",
             "password": "Password123!",
@@ -34,12 +53,29 @@ class TestRegistrationAndLogin:
         }
         assert client.post("/auth/register", json=payload).status_code == 200
 
+        # Still unverified: re-registering refreshes the account + code.
+        retry = client.post("/auth/register", json={**payload, "name": "Second"})
+        assert retry.status_code == 200
+
+        # After verification the email is taken.
+        db = SessionLocal()
+        try:
+            user = (
+                db.query(UserModel)
+                .filter(UserModel.email == "duplicate@example.com")
+                .first()
+            )
+            user.is_verified = True
+            db.commit()
+        finally:
+            db.close()
+
         response = client.post(
             "/auth/register",
-            json={**payload, "name": "Second"},
+            json={**payload, "name": "Third"},
         )
-
-        assert response.status_code == 409
+        assert response.status_code == 400
+        assert "already exists" in response.json()["detail"]
 
     def test_register_validates_input(self, client):
         bad_email = client.post(
@@ -61,24 +97,38 @@ class TestRegistrationAndLogin:
         assert empty_name.status_code == 400
 
     def test_login_success(self, client):
-        client.post(
-            "/auth/register",
-            json={
-                "email": "login@example.com",
-                "password": "Password123!",
-                "name": "Login User",
-            },
+        user = make_user(
+            client, email="login@example.com", name="Login User"
         )
 
         response = client.post(
             "/auth/login",
-            json={"email": "login@example.com", "password": "Password123!"},
+            json={"email": user["email"], "password": user["password"]},
         )
 
         assert response.status_code == 200
         data = response.json()
         assert data["token"]
         assert data["user"]["email"] == "login@example.com"
+        assert data["user"]["is_verified"] is True
+
+    def test_login_rejects_unverified_account(self, client):
+        client.post(
+            "/auth/register",
+            json={
+                "email": "unverified@example.com",
+                "password": "Password123!",
+                "name": "Pending",
+            },
+        )
+
+        response = client.post(
+            "/auth/login",
+            json={"email": "unverified@example.com", "password": "Password123!"},
+        )
+
+        assert response.status_code == 403
+        assert "not verified" in response.json()["detail"]
 
     def test_login_rejects_wrong_password(self, client):
         client.post(
