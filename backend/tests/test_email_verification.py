@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from database import SessionLocal
 from models import User as UserModel
@@ -50,22 +50,32 @@ class TestGenerateOtp:
 
 class TestEmailService:
 
-    def test_console_mode_without_credentials(self, monkeypatch):
-        monkeypatch.delenv("SMTP_USERNAME", raising=False)
-        monkeypatch.delenv("SMTP_PASSWORD", raising=False)
+    def test_console_mode_without_api_key(self, monkeypatch, capsys):
+        # Restore the real sender (the autouse suite fixture stubs it out).
+        monkeypatch.setattr(
+            "utils.email_service.send_verification_email",
+            ORIGINAL_SEND_VERIFICATION,
+        )
+        monkeypatch.delenv("RESEND_API_KEY", raising=False)
         sent = []
 
-        # Console mode must not touch smtplib at all.
-        class _Boom:
-            def __init__(self, *args, **kwargs):
-                sent.append("connected")
+        # Console mode must not touch the Resend API at all.
+        monkeypatch.setattr(
+            email_service_module.resend.Emails,
+            "send",
+            lambda params: sent.append(params),
+        )
 
-        monkeypatch.setattr(email_service_module.smtplib, "SMTP", _Boom)
-
-        result = email_service_module.send_verification_email("a@b.com", "123456")
+        result = email_service_module.send_verification_email(
+            "a@b.com", "123456"
+        )
 
         assert result is False
-        assert sent == []  # no SMTP connection attempted
+        assert sent == []  # no API call attempted
+        assert (
+            "[Email fallback - console mode] Verification code for a@b.com: 123456"
+            in capsys.readouterr().out
+        )
 
     def test_html_contains_code(self):
         html = email_service_module._verification_html("013579")
@@ -74,74 +84,49 @@ class TestEmailService:
         assert "DocuMind AI" in html
         assert "10 minutes" in html
 
-    def test_smtp_delivery_happy_path(self, monkeypatch):
+    def test_resend_delivery_happy_path(self, monkeypatch):
         # Restore the real sender (the autouse suite fixture stubs it out).
         monkeypatch.setattr(
             "utils.email_service.send_verification_email",
             ORIGINAL_SEND_VERIFICATION,
         )
-        monkeypatch.setenv("SMTP_USERNAME", "bot@documind.ai")
-        monkeypatch.setenv("SMTP_PASSWORD", "app-password")
-        monkeypatch.setenv("SMTP_SERVER", "smtp.test.local")
-        monkeypatch.setenv("SMTP_PORT", "2525")
+        monkeypatch.setenv("RESEND_API_KEY", "re_test_key_123")
 
         calls = {}
 
-        class _FakeSMTP:
-            def __init__(self, server, port, timeout=None):
-                calls["server"] = server
-                calls["port"] = port
-                calls["started_tls"] = False
+        def _fake_send(params):
+            calls.update(params)
+            return {"id": "email-1"}
 
-            def __enter__(self):
-                return self
+        monkeypatch.setattr(email_service_module.resend.Emails, "send", _fake_send)
 
-            def __exit__(self, *args):
-                return False
-
-            def starttls(self):
-                calls["started_tls"] = True
-
-            def login(self, username, password):
-                calls["login"] = username
-
-            def sendmail(self, from_addr, to_addrs, payload):
-                calls["from"] = from_addr
-                calls["to"] = to_addrs
-                calls["payload"] = payload
-
-        monkeypatch.setattr(email_service_module.smtplib, "SMTP", _FakeSMTP)
-
-        result = email_service_module.send_verification_email("u@example.com", "654321")
+        result = email_service_module.send_verification_email(
+            "u@example.com", "654321"
+        )
 
         assert result is True
-        assert calls["server"] == "smtp.test.local"
-        assert calls["port"] == 2525
-        assert calls["started_tls"] is True
-        assert calls["login"] == "bot@documind.ai"
+        assert calls["from"] == "DocuMind AI <onboarding@resend.dev>"
         assert calls["to"] == ["u@example.com"]
+        assert calls["subject"] == "Verify your DocuMind AI account"
+        assert "654321" in calls["html"]
 
-        # MIMEText with utf-8 base64-encodes the body — decode the html part.
-        import email as email_lib
+    def test_resend_failure_returns_false(self, monkeypatch):
+        # Restore the real sender so the try/except path is exercised.
+        monkeypatch.setattr(
+            "utils.email_service.send_verification_email",
+            ORIGINAL_SEND_VERIFICATION,
+        )
+        monkeypatch.setenv("RESEND_API_KEY", "re_test_key_123")
 
-        message = email_lib.message_from_string(calls["payload"])
-        body = ""
-        for part in message.walk():
-            if part.get_content_type() == "text/html":
-                body = part.get_payload(decode=True).decode("utf-8")
-        assert "654321" in body
+        def _boom(params):
+            raise RuntimeError("resend down")
 
-    def test_smtp_failure_returns_false(self, monkeypatch):
-        monkeypatch.setenv("SMTP_USERNAME", "bot@documind.ai")
-        monkeypatch.setenv("SMTP_PASSWORD", "app-password")
+        monkeypatch.setattr(email_service_module.resend.Emails, "send", _boom)
 
-        class _Broken:
-            def __init__(self, *args, **kwargs):
-                raise OSError("smtp down")
-
-        monkeypatch.setattr(email_service_module.smtplib, "SMTP", _Broken)
-
-        assert email_service_module.send_verification_email("a@b.com", "123456") is False
+        assert (
+            email_service_module.send_verification_email("a@b.com", "123456")
+            is False
+        )
 
 
 class TestVerifyEmailEndpoint:
@@ -186,9 +171,13 @@ class TestVerifyEmailEndpoint:
 
     def test_expired_code_rejected(self, client):
         _register(client, email="expired@example.com")
-        # Naive UTC, matching the model's utcnow() convention (local now()
-        # would be hours ahead of stored UTC on this machine).
-        _set_expiry("expired@example.com", datetime.utcnow() - timedelta(minutes=1))
+        # Naive UTC (aware "now" stripped), matching the model's utcnow()
+        # convention — local time or an aware datetime would break the
+        # naive-datetime comparison.
+        _set_expiry(
+            "expired@example.com",
+            datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=1),
+        )
 
         user = _get_user("expired@example.com")
 
@@ -237,7 +226,9 @@ class TestResendCodeEndpoint:
 
         user = _get_user("resend@example.com")
         assert user.verification_code != old_code
-        assert user.code_expires_at > datetime.utcnow()
+        assert user.code_expires_at > datetime.now(timezone.utc).replace(
+            tzinfo=None
+        )
 
         # Old code no longer verifies; new one does.
         old_try = client.post(
