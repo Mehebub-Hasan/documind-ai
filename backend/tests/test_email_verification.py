@@ -88,6 +88,7 @@ class TestEmailService:
 
         email_service.send_verification_email("eval@documind.ai", "123456")
         assert len(sent_payloads) == 1
+        assert sent_payloads[0]["to"] == ["eval@documind.ai"]
         assert "123456" in sent_payloads[0].get("html", "")
 
     def test_resend_failure_handled(self, monkeypatch):
@@ -101,8 +102,10 @@ class TestEmailService:
         if hasattr(email_service, "resend"):
             monkeypatch.setattr(email_service.resend.Emails, "send", _raise_error)
 
-        # Ensure it does not crash the caller
-        email_service.send_verification_email("eval@documind.ai", "123456")
+        # Ensure it handles the failure gracefully: no crash, and the
+        # caller receives False ("not delivered") instead of an exception.
+        result = email_service.send_verification_email("eval@documind.ai", "123456")
+        assert result is False
 
 
 class TestVerifyEmailEndpoint:
