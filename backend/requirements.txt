@@ -12,3 +12,4 @@ sqlalchemy
 bcrypt
 PyJWT
 psycopg2-binary
+resend>=2.6.0

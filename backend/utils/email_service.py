@@ -1,32 +1,35 @@
 """
-Email verification (OTP) delivery.
+Email verification (OTP) delivery via the Resend HTTPS API.
+
+Render free instances block outbound SMTP ports (587/465/25), so email is
+dispatched over HTTPS with the Resend Python SDK instead of smtplib.
 
 generate_otp() returns a cryptographically random 6-digit code as a string
 (leading zeros preserved). send_verification_email() sends a styled HTML
-mail via SMTP using credentials from environment variables:
+mail through Resend using:
 
-    SMTP_SERVER   (default smtp.gmail.com)
-    SMTP_PORT     (default 587)
-    SMTP_USERNAME (no default)
-    SMTP_PASSWORD (no default)
+    RESEND_API_KEY   (no default)
 
-Dev/console mode: when SMTP_USERNAME or SMTP_PASSWORD is unset, no network
-call is made — the code is written to the server log instead and the
-function returns False. Callers must treat False as "not delivered", not as
-an error: the verification code is already persisted, and the user can use
-resend-code once SMTP is configured.
+Console mode: when RESEND_API_KEY is missing or empty, no network call is
+made — the code is printed to the server console instead and the function
+returns False, so test suites and local runs without keys do not crash.
+Callers must treat False as "not delivered", not as an error: the
+verification code is already persisted, and the user can use resend-code.
 """
 
 import logging
-import secrets
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 import os
+import secrets
+
+import resend
 
 logger = logging.getLogger("documind.email")
 
 OTP_LENGTH = 6
+
+# Resend's shared sandbox sender. Swap for a verified domain sender
+# (e.g. "DocuMind AI <no-reply@yourdomain.com>") in production.
+SENDER = "DocuMind AI <onboarding@resend.dev>"
 
 
 def generate_otp() -> str:
@@ -61,42 +64,36 @@ Arial,Helvetica,sans-serif;">
 </div>"""
 
 
-def send_verification_email(recipient_email: str, code: str) -> bool:
+def send_verification_email(recipient_email: str, otp_code: str) -> bool:
     """
-    Deliver the verification code. Returns True when the email was handed
-    to the SMTP server, False in console mode (credentials missing) or on
-    any delivery failure — never raises to the caller.
+    Deliver the verification code over HTTPS via Resend. Returns True when
+    Resend accepted the email, False in console mode (no API key) or on any
+    delivery failure — never raises to the caller.
     """
 
-    username = os.getenv("SMTP_USERNAME")
-    password = os.getenv("SMTP_PASSWORD")
+    api_key = os.getenv("RESEND_API_KEY")
 
-    if not username or not password:
-        logger.info(
-            "[Email] SMTP not configured — console mode. Verification code "
-            "for %s: %s",
-            recipient_email,
-            code,
+    if not api_key:
+        print(
+            f"[Email fallback - console mode] Verification code for "
+            f"{recipient_email}: {otp_code}"
         )
         return False
 
-    message = MIMEMultipart("alternative")
-    message["Subject"] = "Your DocuMind AI verification code"
-    message["From"] = f"DocuMind AI <{username}>"
-    message["To"] = recipient_email
-    message.attach(MIMEText(_verification_html(code), "html", "utf-8"))
-
-    server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
-    port = int(os.getenv("SMTP_PORT", "587"))
+    resend.api_key = api_key
 
     try:
-        with smtplib.SMTP(server, port, timeout=15) as smtp:
-            smtp.starttls()
-            smtp.login(username, password)
-            smtp.sendmail(username, [recipient_email], message.as_string())
+        resend.Emails.send(
+            {
+                "from": SENDER,
+                "to": [recipient_email],
+                "subject": "Verify your DocuMind AI account",
+                "html": _verification_html(otp_code),
+            }
+        )
     except Exception as exc:
         logger.error(
-            "[Email] Failed to send verification code to %s: %s",
+            "[Email] Failed to send verification code to %s via Resend: %s",
             recipient_email,
             exc,
         )
