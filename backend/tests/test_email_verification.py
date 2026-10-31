@@ -242,3 +242,56 @@ class TestResendCodeEndpoint:
         )
 
         assert response.status_code == 400
+
+
+class TestBackgroundDelivery:
+
+    def test_register_offloads_email_to_background_task(self, client, monkeypatch):
+        """
+        Registration must not block on email delivery: the endpoint hands
+        send_verification_email to BackgroundTasks with the user's email
+        and the persisted code. TestClient runs background tasks before the
+        request returns, so the recorder is populated by the time we assert.
+        """
+        import main as main_module
+
+        sent = []
+        monkeypatch.setattr(
+            main_module,
+            "send_verification_email",
+            lambda email, code: sent.append((email, code)),
+        )
+
+        response = client.post(
+            "/auth/register",
+            json={
+                "email": "background@example.com",
+                "password": "Password123!",
+                "name": "Background",
+            },
+        )
+
+        assert response.status_code == 200
+
+        user = _get_user("background@example.com")
+        assert sent == [("background@example.com", user.verification_code)]
+
+    def test_resend_offloads_email_to_background_task(self, client, monkeypatch):
+        import main as main_module
+
+        _register(client, email="bg-resend@example.com")
+        sent = []
+        monkeypatch.setattr(
+            main_module,
+            "send_verification_email",
+            lambda email, code: sent.append((email, code)),
+        )
+
+        response = client.post(
+            "/auth/resend-code", json={"email": "bg-resend@example.com"}
+        )
+
+        assert response.status_code == 200
+
+        user = _get_user("bg-resend@example.com")
+        assert sent == [("bg-resend@example.com", user.verification_code)]

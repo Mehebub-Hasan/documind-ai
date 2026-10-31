@@ -274,7 +274,7 @@ def evaluate_gates(aggregates: dict, results: list, thresholds: dict) -> list:
 def _fetch_verification_code(email: str) -> str:
     """
     Read the just-issued OTP from the database. Evaluation runs in console
-    mode (no SMTP credentials), so the code is only available server-side.
+    mode (no RESEND_API_KEY), so the code is only available server-side.
     """
 
     db = SessionLocal()

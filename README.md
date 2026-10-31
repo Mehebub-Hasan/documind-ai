@@ -84,13 +84,13 @@ JWT_SECRET_KEY=change-me-to-a-long-random-string
 # Optional: allow extra CORS origins in production
 # ALLOWED_ORIGINS=https://your-frontend-domain.com
 
-# Email verification (6-digit OTP on signup). Without SMTP_USERNAME /
-# SMTP_PASSWORD the backend runs in console mode: codes are written to the
-# server log instead of being emailed, and signup still works.
-# SMTP_SERVER=smtp.gmail.com
-# SMTP_PORT=587
-# SMTP_USERNAME=your_address@gmail.com
-# SMTP_PASSWORD=your_gmail_app_password
+# Email verification (6-digit OTP on signup) — delivered via the Resend
+# HTTPS API (Render free instances block outbound SMTP). Without
+# RESEND_API_KEY the backend runs in console mode: codes are printed to the
+# server log instead of being emailed, and signup still works. The sandbox
+# sender is onboarding@resend.dev; verify a domain at resend.com to send
+# from your own address in production.
+# RESEND_API_KEY=re_xxxxxxxxxx
 ```
 
 Notes:

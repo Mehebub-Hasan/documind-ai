@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -168,11 +168,15 @@ def _public_user(user: User) -> dict:
     }
 
 
-def _issue_verification_code(db: Session, user: User) -> None:
+def _issue_verification_code(
+    db: Session, user: User, background_tasks: BackgroundTasks
+) -> None:
     """
-    Store a fresh 6-digit code (10-minute expiry) on the user and send it.
-    Delivery failures never fail the request: the code is persisted, and
-    the user can use resend-code.
+    Store a fresh 6-digit code (10-minute expiry) on the user and queue the
+    email for delivery via BackgroundTasks, so the HTTP response returns
+    immediately instead of waiting on the Resend API. Delivery failures
+    never fail the request: the code is persisted first, and the user can
+    use resend-code.
     """
 
     user.is_verified = False
@@ -183,7 +187,9 @@ def _issue_verification_code(db: Session, user: User) -> None:
     )
     db.commit()
 
-    send_verification_email(user.email, user.verification_code)
+    background_tasks.add_task(
+        send_verification_email, user.email, user.verification_code
+    )
 
 
 def _parse_json(raw, default):
@@ -366,10 +372,15 @@ def _process_and_store(
 
 
 @app.post("/auth/register")
-def register(payload: RegisterRequest, db: Session = Depends(get_db)):
+def register(
+    payload: RegisterRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
     """
     Create (or refresh) an unverified account and email a 6-digit
     verification code. No token is returned until the email is verified.
+    The email is sent via BackgroundTasks after the response returns.
     """
 
     email = payload.email.strip().lower()
@@ -409,7 +420,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         user = User(email=email, name=name, password_hash=hash_password(password))
         db.add(user)
 
-    _issue_verification_code(db, user)
+    _issue_verification_code(db, user, background_tasks)
 
     return {
         "message": "Verification code sent to email",
@@ -467,10 +478,15 @@ def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)):
 
 
 @app.post("/auth/resend-code")
-def resend_code(payload: ResendCodeRequest, db: Session = Depends(get_db)):
+def resend_code(
+    payload: ResendCodeRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
     """
     Issue a fresh verification code when the previous one expired or never
-    arrived. Only unverified accounts can request codes.
+    arrived. Only unverified accounts can request codes. The email is sent
+    via BackgroundTasks after the response returns.
     """
 
     email = payload.email.strip().lower()
@@ -489,7 +505,7 @@ def resend_code(payload: ResendCodeRequest, db: Session = Depends(get_db)):
             detail="Email is already verified. Please sign in."
         )
 
-    _issue_verification_code(db, user)
+    _issue_verification_code(db, user, background_tasks)
 
     return {
         "message": "Verification code sent to email",

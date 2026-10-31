@@ -128,16 +128,22 @@ def client():
 
 
 @pytest.fixture(autouse=True)
-def disable_smtp(monkeypatch):
+def disable_email_delivery(monkeypatch):
     """
     Tests never deliver email: send_verification_email is stubbed out even
-    if a developer's .env carries real SMTP credentials. Codes land in the
+    if a developer's .env carries a real RESEND_API_KEY. Codes land in the
     database and tests assert on those.
+
+    Patched in BOTH namespaces: utils.email_service (the definition) and
+    main (which holds its own imported reference and hands it to
+    BackgroundTasks.add_task at request time).
     """
 
+    stub = lambda email, code: False  # noqa: E731
     monkeypatch.setattr(
-        "utils.email_service.send_verification_email", lambda email, code: False
+        "utils.email_service.send_verification_email", stub
     )
+    monkeypatch.setattr("main.send_verification_email", stub)
 
 
 def make_user(client, email=None, password="Password123!", name="Test User"):
