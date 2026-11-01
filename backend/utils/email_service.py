@@ -27,9 +27,10 @@ logger = logging.getLogger("documind.email")
 
 OTP_LENGTH = 6
 
-# Resend's shared sandbox sender. Swap for a verified domain sender
-# (e.g. "DocuMind AI <no-reply@yourdomain.com>") in production.
-SENDER = "DocuMind AI <onboarding@resend.dev>"
+# Default production sender on the verified subdomain mail.mehebub-hasan.me
+# (DKIM/SPF/DMARC configured in Resend). Override with the EMAIL_FROM env
+# var without a code change.
+DEFAULT_SENDER = "DocuMind AI <verify@mail.mehebub-hasan.me>"
 
 
 def generate_otp() -> str:
@@ -85,7 +86,7 @@ def send_verification_email(recipient_email: str, otp_code: str) -> bool:
     try:
         resend.Emails.send(
             {
-                "from": SENDER,
+                "from": os.getenv("EMAIL_FROM", DEFAULT_SENDER),
                 "to": [recipient_email],
                 "subject": "Verify your DocuMind AI account",
                 "html": _verification_html(otp_code),
