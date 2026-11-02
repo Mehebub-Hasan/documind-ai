@@ -95,17 +95,18 @@ class TestExtractiveSummary:
         assert summary["takeaways"][0]["source"] == "Page 1"
 
 
-class _FakeSummaryClient:
-    def __init__(self, content):
-        message = type("M", (), {"content": content})()
-        choice = type("C", (), {"message": message})()
-        self._response = type("R", (), {"choices": [choice]})()
-        self.completions = self
-        self.chat = self
+class _FakeSummaryModel:
+    """Gemini stand-in returning a canned completion."""
 
-    def create(self, **kwargs):
-        self.captured = kwargs
-        return self._response
+    def __init__(self, text):
+        self._text = text
+        self.captured_prompt = None
+        self.captured_generation_config = None
+
+    def generate_content(self, prompt, generation_config=None):
+        self.captured_prompt = prompt
+        self.captured_generation_config = generation_config
+        return type("R", (), {"text": self._text})()
 
 
 def llm_payload(overview, takeaways):
@@ -123,8 +124,8 @@ class TestLlmSummary:
                 {"text": "Outlook is stable.", "source": "Page 3"},
             ],
         )
-        fake = _FakeSummaryClient(payload)
-        monkeypatch.setattr("summarizer.get_deepseek_client", lambda: fake)
+        fake = _FakeSummaryModel(payload)
+        monkeypatch.setattr("summarizer.get_chat_model", lambda *a, **k: fake)
 
         summary = generate_llm_summary(pdf_chunks(3))
 
@@ -142,8 +143,8 @@ class TestLlmSummary:
                 {"text": "Fabricated point.", "source": "Page 99"},
             ],
         )
-        fake = _FakeSummaryClient(payload)
-        monkeypatch.setattr("summarizer.get_deepseek_client", lambda: fake)
+        fake = _FakeSummaryModel(payload)
+        monkeypatch.setattr("summarizer.get_chat_model", lambda *a, **k: fake)
 
         summary = generate_llm_summary(pdf_chunks(3))
 
@@ -151,35 +152,30 @@ class TestLlmSummary:
 
     def test_code_fenced_json_is_handled(self, monkeypatch):
         payload = f"```json\n{llm_payload('Fenced overview.', [{'text': 'Point.', 'source': 'Page 1'}])}\n```"
-        fake = _FakeSummaryClient(payload)
-        monkeypatch.setattr("summarizer.get_deepseek_client", lambda: fake)
+        fake = _FakeSummaryModel(payload)
+        monkeypatch.setattr("summarizer.get_chat_model", lambda *a, **k: fake)
 
         summary = generate_llm_summary(pdf_chunks(1))
 
         assert summary["overview"] == "Fenced overview."
 
     def test_unparseable_output_returns_none(self, monkeypatch):
-        fake = _FakeSummaryClient("not json at all")
-        monkeypatch.setattr("summarizer.get_deepseek_client", lambda: fake)
+        fake = _FakeSummaryModel("not json at all")
+        monkeypatch.setattr("summarizer.get_chat_model", lambda *a, **k: fake)
 
         assert generate_llm_summary(pdf_chunks(2)) is None
 
     def test_api_failure_returns_none(self, monkeypatch):
         class _Boom:
-            def create(self, **kwargs):
+            def generate_content(self, prompt, generation_config=None):
                 raise RuntimeError("api down")
 
-        class _Client:
-            def __init__(self):
-                self.completions = _Boom()
-                self.chat = type("C", (), {"completions": self.completions})()
-
-        monkeypatch.setattr("summarizer.get_deepseek_client", lambda: _Client())
+        monkeypatch.setattr("summarizer.get_chat_model", lambda *a, **k: _Boom())
 
         assert generate_llm_summary(pdf_chunks(2)) is None
 
     def test_no_client_returns_none(self, monkeypatch):
-        monkeypatch.setattr("summarizer.get_deepseek_client", lambda: None)
+        monkeypatch.setattr("summarizer.get_chat_model", lambda *a, **k: None)
 
         assert generate_llm_summary(pdf_chunks(2)) is None
 
@@ -187,7 +183,7 @@ class TestLlmSummary:
 class TestGenerateDocumentSummary:
 
     def test_falls_back_to_extractive_without_llm(self, monkeypatch):
-        monkeypatch.setattr("summarizer.get_deepseek_client", lambda: None)
+        monkeypatch.setattr("summarizer.get_chat_model", lambda *a, **k: None)
 
         summary = generate_document_summary(pdf_chunks(4))
 
@@ -199,8 +195,8 @@ class TestGenerateDocumentSummary:
             "LLM overview.",
             [{"text": "Point.", "source": "Page 1"}],
         )
-        fake = _FakeSummaryClient(payload)
-        monkeypatch.setattr("summarizer.get_deepseek_client", lambda: fake)
+        fake = _FakeSummaryModel(payload)
+        monkeypatch.setattr("summarizer.get_chat_model", lambda *a, **k: fake)
 
         summary = generate_document_summary(pdf_chunks(2))
 

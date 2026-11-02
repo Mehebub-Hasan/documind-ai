@@ -2,7 +2,7 @@
 RAG Triad evaluation runner.
 
 Runs benchmark cases through DocuMind's real pipeline (FastAPI app
-exercised in-process via TestClient: auth, upload, retrieval gate, DeepSeek
+exercised in-process via TestClient: auth, upload, retrieval gate, Gemini
 generation, attribution verification), then scores each case with the
 three LLM-as-a-Judge metrics from metrics.py:
 
@@ -34,7 +34,7 @@ Usage (from backend/):
     python -m eval.runner
     python -m eval.runner --dataset eval/golden_dataset.json --gate
 
-Requires DEEPSEEK_API_KEY (generation + judging) and requirements-dev.txt
+Requires GEMINI_API_KEY (generation + judging) and requirements-dev.txt
 (httpx for the TestClient transport). The benchmark documents and eval user
 persist in the configured database and are reused across runs.
 """
@@ -576,7 +576,7 @@ def main() -> int:
     report = {
         "started_at": started_at,
         "finished_at": _now_iso(),
-        "generator_model": "deepseek-chat",
+        "generator_model": "gemini-flash-lite-latest",
         "judge_model": JUDGE_MODEL,
         "dataset": dataset_path.name,
         "benchmark_document": filename,

@@ -298,7 +298,7 @@ class TestPersistenceRecovery:
 
         monkeypatch.setattr(
             main_module,
-            "answer_question_with_deepseek",
+            "answer_question_with_gemini",
             lambda question, retrieved_chunks: "Stub answer.",
         )
         ask = client.post(

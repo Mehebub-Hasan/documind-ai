@@ -41,9 +41,9 @@ EMBEDDING_DIM = 8
 ORIGINAL_EMBED_TEXTS = VectorStore._embed_texts
 
 
-def _stub_embed_texts(self, texts):
+def _stub_embed_texts(self, texts, task_type="retrieval_document"):
     """
-    Deterministic offline embeddings so tests never call the OpenAI API.
+    Deterministic offline embeddings so tests never call the Gemini API.
     Uses crc32 (stable across processes) rather than Python's hash().
     """
 
@@ -79,8 +79,8 @@ def disable_llm_calls(monkeypatch):
     that exercise the LLM paths patch in their own fake clients.
     """
 
-    monkeypatch.setattr("summarizer.get_deepseek_client", lambda: None)
-    monkeypatch.setattr("chatbot.get_deepseek_client", lambda: None)
+    monkeypatch.setattr("summarizer.get_chat_model", lambda *args, **kwargs: None)
+    monkeypatch.setattr("chatbot.get_chat_model", lambda *args, **kwargs: None)
 
 
 @pytest.fixture(autouse=True)

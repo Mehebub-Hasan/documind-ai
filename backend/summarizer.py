@@ -8,7 +8,7 @@ otherwise lazily on first open — and persisted on the Document row as JSON:
 
 Two generation methods, in order of preference:
 
-1. "llm"        DeepSeek summarizes evenly spaced excerpts of the document.
+1. "llm"        Gemini summarizes evenly spaced excerpts of the document.
                 Every takeaway citation is validated against the excerpt
                 labels actually provided; takeaways with invented sources
                 are discarded.
@@ -22,7 +22,8 @@ import json
 import re
 from typing import Dict, List, Optional
 
-from chatbot import build_context_from_chunks, format_chunk_source, get_deepseek_client
+from gemini_client import get_chat_model
+from chatbot import build_context_from_chunks, format_chunk_source
 
 MAX_SUMMARY_CHUNKS = 8
 MAX_TAKEAWAYS = 3
@@ -185,37 +186,38 @@ def _parse_llm_summary(raw: str, valid_sources: set) -> Optional[Dict]:
 
 def generate_llm_summary(chunks: List[Dict]) -> Optional[Dict]:
     """
-    Generate a summary with DeepSeek. Returns None (never raises) when no
+    Generate a summary with Gemini. Returns None (never raises) when no
     client is available, the call fails, or the output fails validation.
     """
 
-    client = get_deepseek_client()
-    if client is None:
+    model = get_chat_model(system_instruction=SUMMARY_SYSTEM_PROMPT)
+    if model is None:
         return None
 
     selected = select_summary_chunks(chunks)
     context = build_context_from_chunks(selected)
     valid_sources = {format_chunk_source(chunk) for chunk in selected}
 
+    user_prompt = (
+        "Document excerpts (source-tagged):\n"
+        f"{context}\n\n"
+        "Executive summary JSON:"
+    )
+
     try:
-        response = client.chat.completions.create(
-            model="deepseek-chat",
-            messages=[
-                {"role": "system", "content": SUMMARY_SYSTEM_PROMPT},
-                {
-                    "role": "user",
-                    "content": (
-                        "Document excerpts (source-tagged):\n"
-                        f"{context}\n\n"
-                        "Executive summary JSON:"
-                    ),
-                },
-            ],
-            temperature=0.2,
-            max_tokens=500,
-            timeout=30,
+        response = model.generate_content(
+            user_prompt,
+            generation_config={
+                "temperature": 0.2,
+                # Headroom for hidden thinking tokens (current Gemini
+                # models think by default).
+                "max_output_tokens": 1024,
+                # Strict JSON out of the model; the parser still tolerates
+                # code fences in case the mime-type hint is ignored.
+                "response_mime_type": "application/json",
+            },
         )
-        raw = response.choices[0].message.content
+        raw = response.text
     except Exception:
         return None
 

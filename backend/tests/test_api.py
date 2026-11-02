@@ -187,7 +187,7 @@ class TestAsk:
 
         monkeypatch.setattr(
             main_module,
-            "answer_question_with_deepseek",
+            "answer_question_with_gemini",
             lambda question, retrieved_chunks: "Stub answer.",
         )
 
@@ -217,7 +217,7 @@ class TestAsk:
 
         monkeypatch.setattr(
             main_module,
-            "answer_question_with_deepseek",
+            "answer_question_with_gemini",
             lambda question, retrieved_chunks: "Stub answer.",
         )
 
@@ -428,7 +428,7 @@ class TestAskGuardrail:
         def _boom(question, retrieved_chunks):
             raise AssertionError("LLM must not be called below the threshold")
 
-        monkeypatch.setattr(main_module, "answer_question_with_deepseek", _boom)
+        monkeypatch.setattr(main_module, "answer_question_with_gemini", _boom)
         monkeypatch.setattr(main_module, "MIN_SIMILARITY_SCORE", 0.50)
 
         with caplog.at_level(logging.WARNING, logger="documind.guardrail"):
@@ -471,7 +471,7 @@ class TestAskGuardrail:
             calls.append(question)
             return "Zebras cross the river in herds [Page 2]."
 
-        monkeypatch.setattr(main_module, "answer_question_with_deepseek", _fake_answer)
+        monkeypatch.setattr(main_module, "answer_question_with_gemini", _fake_answer)
         monkeypatch.setattr(main_module, "MIN_SIMILARITY_SCORE", 0.50)
 
         response = client.post(
@@ -507,7 +507,7 @@ class TestAskGuardrail:
 
         monkeypatch.setattr(
             main_module,
-            "answer_question_with_deepseek",
+            "answer_question_with_gemini",
             lambda question, retrieved_chunks: (
                 "Zebras cross the river [Page 2]. The herd flies to Mars [Blocks 50-60]."
             ),

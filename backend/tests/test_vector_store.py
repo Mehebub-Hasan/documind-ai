@@ -60,17 +60,16 @@ CHUNKS = [
 class TestProviderSelection:
 
     def test_falls_back_to_local_without_api_key(self, monkeypatch):
-        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
         monkeypatch.delenv("LOCAL_EMBEDDING_MODEL", raising=False)
 
         store = VectorStore()
 
         assert store.provider == "local"
         assert store.model_name == "all-MiniLM-L6-v2"
-        assert store.client is None
 
     def test_local_model_name_from_env(self, monkeypatch):
-        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
         monkeypatch.setenv("LOCAL_EMBEDDING_MODEL", "some-other-model")
 
         store = VectorStore()
@@ -78,30 +77,29 @@ class TestProviderSelection:
         assert store.provider == "local"
         assert store.model_name == "some-other-model"
 
-    def test_uses_openai_when_api_key_present(self, monkeypatch):
-        monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    def test_uses_gemini_when_api_key_present(self, monkeypatch):
+        monkeypatch.setenv("GEMINI_API_KEY", "test-key")
         monkeypatch.delenv("EMBEDDING_MODEL", raising=False)
 
         store = VectorStore()
 
-        assert store.provider == "openai"
-        assert store.model_name == "text-embedding-3-small"
-        assert store.client is not None
+        assert store.provider == "gemini"
+        assert store.model_name == "models/gemini-embedding-001"
 
-    def test_openai_model_name_from_env(self, monkeypatch):
-        monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-        monkeypatch.setenv("EMBEDDING_MODEL", "text-embedding-3-large")
+    def test_gemini_model_name_from_env(self, monkeypatch):
+        monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+        monkeypatch.setenv("EMBEDDING_MODEL", "models/text-embedding-005")
 
         store = VectorStore()
 
-        assert store.provider == "openai"
-        assert store.model_name == "text-embedding-3-large"
+        assert store.provider == "gemini"
+        assert store.model_name == "models/text-embedding-005"
 
 
 class TestLocalEmbeddings:
 
     def test_local_embed_texts_returns_float32_matrix(self, monkeypatch, real_embed_texts):
-        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
         monkeypatch.setattr(
             VectorStore, "_get_local_model", lambda self: FakeLocalModel(6)
         )
@@ -112,18 +110,17 @@ class TestLocalEmbeddings:
         assert embeddings.shape == (2, 6)
         assert embeddings.dtype == np.float32
 
-    def test_openai_provider_without_client_raises(self, monkeypatch, real_embed_texts):
-        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    def test_gemini_provider_without_key_raises(self, monkeypatch, real_embed_texts):
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
 
         store = VectorStore()
-        store.provider = "openai"
-        store.client = None
+        store.provider = "gemini"
 
-        with pytest.raises(ValueError, match="OPENAI_API_KEY"):
+        with pytest.raises(ValueError, match="GEMINI_API_KEY"):
             store._embed_texts(["alpha"])
 
     def test_build_and_search_with_local_provider(self, monkeypatch, tmp_path, real_embed_texts):
-        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
         monkeypatch.setattr(
             VectorStore, "_get_local_model", lambda self: FakeLocalModel(6)
         )
@@ -141,7 +138,7 @@ class TestLocalEmbeddings:
         assert {"score", "chunk_id", "page", "text"} == set(results[0].keys())
 
     def test_save_and_load_index_roundtrip(self, monkeypatch, tmp_path, real_embed_texts):
-        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
         monkeypatch.setattr(
             VectorStore, "_get_local_model", lambda self: FakeLocalModel(6)
         )
