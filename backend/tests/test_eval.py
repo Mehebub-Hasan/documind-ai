@@ -13,18 +13,19 @@ from eval.metrics import (
 from eval.runner import aggregate_results, render_table
 
 
-class _FakeJudgeModel:
-    """Gemini stand-in returning a canned completion."""
+class _FakeJudgeClient:
+    """DeepSeek stand-in returning a canned completion."""
 
     def __init__(self, content):
-        self._content = content
-        self.captured_prompt = None
-        self.captured_generation_config = None
+        message = type("M", (), {"content": content})()
+        choice = type("C", (), {"message": message})()
+        self._response = type("R", (), {"choices": [choice]})()
+        self.chat = type("Chat", (), {"completions": self})()
+        self.captured = None
 
-    def generate_content(self, prompt, generation_config=None):
-        self.captured_prompt = prompt
-        self.captured_generation_config = generation_config
-        return type("R", (), {"text": self._content})()
+    def create(self, **kwargs):
+        self.captured = kwargs
+        return self._response
 
 
 CHUNKS = [
@@ -36,9 +37,9 @@ CHUNKS = [
 @pytest.fixture
 def fake_judge(monkeypatch):
     def _install(content):
-        model = _FakeJudgeModel(content)
-        monkeypatch.setattr("eval.metrics.get_chat_model", lambda *a, **k: model)
-        return model
+        client = _FakeJudgeClient(content)
+        monkeypatch.setattr("eval.metrics.get_deepseek_client", lambda: client)
+        return client
 
     return _install
 
@@ -73,17 +74,15 @@ class TestClampScore:
 class TestScoreFunctions:
 
     def test_context_relevance_happy_path(self, fake_judge):
-        model = fake_judge('{"score": 0.9, "reasoning": "Directly relevant."}')
+        client = fake_judge('{"score": 0.9, "reasoning": "Directly relevant."}')
 
         result = score_context_relevance("How long was logging?", CHUNKS)
 
         assert result == {"score": 0.9, "reasoning": "Directly relevant."}
-        sent = model.captured_prompt
+        sent = client.captured["messages"][1]["content"]
         assert "How long was logging?" in sent
         assert "five minutes" in sent  # chunk text included
-        assert model.captured_generation_config["response_mime_type"] == (
-            "application/json"
-        )
+        assert client.captured["response_format"] == {"type": "json_object"}
 
     def test_groundedness_reports_hallucinated_claims(self, fake_judge):
         fake_judge(
@@ -110,27 +109,30 @@ class TestScoreFunctions:
         assert result["score"] == 1.0
 
     def test_answer_relevance_passes_expected_refusal_note(self, fake_judge):
-        model = fake_judge('{"score": 1.0, "reasoning": "Clear refusal."}')
+        client = fake_judge('{"score": 1.0, "reasoning": "Clear refusal."}')
 
         score_answer_relevance(
             "What was the budget?", "I cannot find this information.",
             expected_refusal=True,
         )
 
-        assert "intentionally unanswerable" in model.captured_prompt
+        assert "intentionally unanswerable" in client.captured["messages"][1]["content"]
 
     def test_missing_api_key_raises_judge_error(self, monkeypatch):
-        monkeypatch.setattr("eval.metrics.get_chat_model", lambda *a, **k: None)
+        monkeypatch.setattr("eval.metrics.get_deepseek_client", lambda: None)
 
         with pytest.raises(JudgeError):
             score_answer_relevance("q", "a")
 
     def test_api_failure_raises_judge_error(self, monkeypatch):
         class _Broken:
-            def generate_content(self, prompt, generation_config=None):
+            def __init__(self):
+                self.chat = type("C", (), {"completions": self})()
+
+            def create(self, **kwargs):
                 raise RuntimeError("api down")
 
-        monkeypatch.setattr("eval.metrics.get_chat_model", lambda *a, **k: _Broken())
+        monkeypatch.setattr("eval.metrics.get_deepseek_client", lambda: _Broken())
 
         with pytest.raises(JudgeError):
             score_answer_relevance("q", "a")

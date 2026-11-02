@@ -1,9 +1,9 @@
 name: RAG Evaluation
 
 # RAG Triad regression evaluation: runs the golden benchmark through the
-# real pipeline (retrieval gate, Gemini generation, attribution checks)
+# real pipeline (retrieval gate, DeepSeek generation, attribution checks)
 # and LLM-as-a-Judge scoring, then enforces hallucination / retrieval-drift
-# gates. Requires the GEMINI_API_KEY repository secret; without it the
+# gates. Requires the DEEPSEEK_API_KEY repository secret; without it the
 # job warns and skips (PRs from forks don't have secret access).
 
 on:
@@ -43,10 +43,10 @@ jobs:
       - name: Run RAG Triad evaluation with regression gates
         working-directory: backend
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: |
-          if [ -z "$GEMINI_API_KEY" ]; then
-            echo "::warning::GEMINI_API_KEY secret is not set — skipping RAG evaluation."
+          if [ -z "$DEEPSEEK_API_KEY" ]; then
+            echo "::warning::DEEPSEEK_API_KEY secret is not set — skipping RAG evaluation."
             exit 0
           fi
           python -m eval.runner --dataset eval/golden_dataset.json --gate

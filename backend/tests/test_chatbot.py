@@ -3,7 +3,7 @@ import pytest
 from chatbot import (
     NOT_FOUND_ANSWER,
     SYSTEM_PROMPT,
-    answer_question_with_gemini,
+    answer_question_with_deepseek,
     build_context_from_chunks,
     format_chunk_source,
     verify_attributions,
@@ -64,60 +64,48 @@ class TestSystemPrompt:
         )
 
 
-class _FakeResponse:
-    def __init__(self, text):
-        self.text = text
+class _FakeMessage:
+    def __init__(self, content):
+        self.message = type("M", (), {"content": content})()
 
 
-class _FakeModel:
-    """Gemini stand-in capturing the prompt and generation config."""
+class _FakeCompletions:
+    def __init__(self):
+        self.captured = None
 
-    def __init__(self, text="fake answer"):
-        self._text = text
-        self.captured_prompt = None
-        self.captured_generation_config = None
+    def create(self, **kwargs):
+        self.captured = kwargs
+        return type("R", (), {"choices": [_FakeMessage("fake answer")]})
 
-    def generate_content(self, prompt, generation_config=None):
-        self.captured_prompt = prompt
-        self.captured_generation_config = generation_config
-        return _FakeResponse(self._text)
+
+class _FakeClient:
+    def __init__(self):
+        self.completions = _FakeCompletions()
+        self.chat = type("C", (), {"completions": self.completions})()
 
 
 class TestAnswerQuestion:
 
-    def test_passes_context_and_question_in_prompt(self, monkeypatch):
-        fake = _FakeModel()
-        monkeypatch.setattr(
-            "chatbot.get_chat_model", lambda system_instruction=None: fake
-        )
+    def test_passes_system_prompt_context_and_question(self, monkeypatch):
+        fake = _FakeClient()
+        monkeypatch.setattr("chatbot.get_deepseek_client", lambda: fake)
 
         chunks = [{"page": 2, "text": "solar panels generate electricity"}]
-        result = answer_question_with_gemini("What is this about?", chunks)
+        result = answer_question_with_deepseek("What is this about?", chunks)
 
         assert result == "fake answer"
-        user_prompt = fake.captured_prompt
+        messages = fake.completions.captured["messages"]
+        assert messages[0] == {"role": "system", "content": SYSTEM_PROMPT}
+        user_prompt = messages[1]["content"]
         assert "[Page 2]" in user_prompt
         assert "solar panels generate electricity" in user_prompt
         assert "What is this about?" in user_prompt
 
-    def test_system_instruction_is_the_guardrail_prompt(self, monkeypatch):
-        captured = {}
-
-        def _get_model(system_instruction=None):
-            captured["system"] = system_instruction
-            return _FakeModel()
-
-        monkeypatch.setattr("chatbot.get_chat_model", _get_model)
-
-        answer_question_with_gemini("q", [{"page": 1, "text": "x"}])
-
-        assert captured["system"] == SYSTEM_PROMPT
-
     def test_raises_without_api_key(self, monkeypatch):
-        monkeypatch.setattr("chatbot.get_chat_model", lambda *args, **kwargs: None)
+        monkeypatch.setattr("chatbot.get_deepseek_client", lambda: None)
 
         with pytest.raises(ValueError):
-            answer_question_with_gemini("anything", [{"page": 1, "text": "x"}])
+            answer_question_with_deepseek("anything", [{"page": 1, "text": "x"}])
 
 
 PDF_CHUNKS = [

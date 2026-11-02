@@ -5,7 +5,7 @@ pymupdf
 python-docx
 numpy
 faiss-cpu
-google-generativeai
+openai
 python-dotenv
 sentence-transformers
 sqlalchemy

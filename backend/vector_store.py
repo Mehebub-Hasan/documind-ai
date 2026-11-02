@@ -3,16 +3,14 @@ from pathlib import Path
 
 import numpy as np
 import faiss
-import google.generativeai as genai
 from dotenv import load_dotenv
-
-from gemini_client import embedding_output_dimensionality, gemini_configured
+from openai import OpenAI
 
 
 ENV_PATH = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=ENV_PATH)
 
-GEMINI_DEFAULT_MODEL = "models/gemini-embedding-001"
+OPENAI_DEFAULT_MODEL = "text-embedding-3-small"
 LOCAL_DEFAULT_MODEL = "all-MiniLM-L6-v2"
 
 # Anti-hallucination guardrail: minimum cosine similarity (IndexFlatIP over
@@ -30,8 +28,8 @@ MIN_SIMILARITY_SCORE = float(os.getenv("MIN_SIMILARITY_SCORE", "0.13"))
 # downloaded) once per process, not once per document.
 _local_model_cache: dict = {}
 
-# Probe-embedding an API model costs a quota'd request, so remember the
-# output dimension per model name for the life of the process.
+# Probing an API embedder's output dimension is a billable request, so
+# remember it per model name for the life of the process.
 _dimension_cache: dict = {}
 
 
@@ -40,27 +38,37 @@ class VectorStore:
         """
         In-memory FAISS vector store for one document.
 
-        Embeddings come from the Google Gemini API (gemini-embedding-001
-        truncated to 768 dimensions) when GEMINI_API_KEY is set. Without a
-        key, the store automatically falls back to a local
-        SentenceTransformers model so uploads and search work fully offline.
+        Embeddings come from the OpenAI API (text-embedding-3-small, 1536
+        dimensions) when OPENAI_API_KEY is set. Without a key, the store
+        automatically falls back to a local SentenceTransformers model so
+        uploads and search work fully offline.
 
         An explicit model_name overrides the model of whichever provider is
-        active (EMBEDDING_MODEL for Gemini, LOCAL_EMBEDDING_MODEL for local).
+        active (EMBEDDING_MODEL for OpenAI, LOCAL_EMBEDDING_MODEL for local).
         """
 
-        self.provider = "gemini" if os.getenv("GEMINI_API_KEY") else "local"
+        self.provider = "openai" if os.getenv("OPENAI_API_KEY") else "local"
 
         if model_name is not None:
             self.model_name = model_name
-        elif self.provider == "gemini":
-            self.model_name = os.getenv("EMBEDDING_MODEL", GEMINI_DEFAULT_MODEL)
+        elif self.provider == "openai":
+            self.model_name = os.getenv("EMBEDDING_MODEL", OPENAI_DEFAULT_MODEL)
         else:
             self.model_name = os.getenv("LOCAL_EMBEDDING_MODEL", LOCAL_DEFAULT_MODEL)
 
+        self.client = self._get_openai_client() if self.provider == "openai" else None
         self.index = None
         self.chunks = []
         self.dimension = None
+
+    def _get_openai_client(self):
+        load_dotenv(dotenv_path=ENV_PATH, override=False)
+        api_key = os.getenv("OPENAI_API_KEY")
+
+        if not api_key:
+            return None
+
+        return OpenAI(api_key=api_key)
 
     def _get_local_model(self):
         from sentence_transformers import SentenceTransformer
@@ -84,33 +92,37 @@ class VectorStore:
 
         return np.asarray(embeddings, dtype="float32")
 
-    def _embed_texts(self, texts, task_type: str = "retrieval_document"):
+    def _embed_texts(self, texts):
         if not texts:
             return np.array([], dtype="float32")
 
         if self.provider == "local":
             return self._embed_texts_local(texts)
 
-        if not gemini_configured():
+        if self.client is None:
             raise ValueError(
-                "GEMINI_API_KEY not found. Please add GEMINI_API_KEY in your .env file."
+                "OPENAI_API_KEY not found. Please add OPENAI_API_KEY in your .env file."
             )
 
-        # The SDK batches internally (100 texts per BatchEmbedContents
-        # request) and returns {"embedding": [vector, ...]} for list input.
-        result = genai.embed_content(
-            model=self.model_name,
-            content=list(texts),
-            task_type=task_type,
-            output_dimensionality=embedding_output_dimensionality(),
-        )
+        embeddings = []
+        batch_size = 96
 
-        return np.array(result["embedding"], dtype="float32")
+        for start in range(0, len(texts), batch_size):
+            batch = texts[start:start + batch_size]
+
+            response = self.client.embeddings.create(
+                model=self.model_name,
+                input=batch
+            )
+
+            embeddings.extend([item.embedding for item in response.data])
+
+        return np.array(embeddings, dtype="float32")
 
     def embedding_dimension(self) -> int:
         """
-        Output dimension of the active embedding provider (768 for
-        gemini-embedding-001 with the default truncation).
+        Output dimension of the active embedding provider (1536 for
+        text-embedding-3-small).
 
         Used to verify a persisted FAISS index still matches the current
         provider before querying it.
@@ -181,7 +193,7 @@ class VectorStore:
         if top_k <= 0:
             return []
 
-        query_embedding = self._embed_texts([query], task_type="retrieval_query")
+        query_embedding = self._embed_texts([query])
         faiss.normalize_L2(query_embedding)
 
         scores, indices = self.index.search(query_embedding, top_k)

@@ -134,8 +134,8 @@ def get_vector_store(db: Session, document: Document) -> VectorStore:
 
     # Rebuild when no index file exists yet, or when the one on disk was
     # built with a different embedding provider/model (for example the
-    # GEMINI_API_KEY was removed and we now fall back to the local model,
-    # or indexes left over from the 1536-dim OpenAI embeddings), so query
+    # OPENAI_API_KEY was removed and we now fall back to the local model,
+    # or 768-dim indexes left over from the Gemini embeddings), so query
     # embeddings always match the index dimension.
     if (
         vector_store.index is None

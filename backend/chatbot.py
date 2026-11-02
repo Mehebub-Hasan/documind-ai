@@ -1,11 +1,33 @@
 import logging
+import os
 import re
 from typing import Dict, List, Optional, Tuple
 
-from gemini_client import get_chat_model
+from dotenv import load_dotenv
+from openai import OpenAI
 
+
+load_dotenv()
 
 logger = logging.getLogger("documind.guardrail")
+
+
+def get_deepseek_client():
+    """
+    Create DeepSeek client using OpenAI-compatible API.
+    """
+
+    api_key = os.getenv("DEEPSEEK_API_KEY")
+
+    if not api_key:
+        return None
+
+    client = OpenAI(
+        api_key=api_key,
+        base_url="https://api.deepseek.com"
+    )
+
+    return client
 
 
 def format_chunk_source(item: Dict) -> str:
@@ -392,19 +414,19 @@ states that the device carries a 24-month limited warranty [Blocks 2-3]."
 """
 
 
-def answer_question_with_gemini(
+def answer_question_with_deepseek(
     question: str,
     retrieved_chunks: List[Dict]
 ) -> str:
     """
-    Generate an answer using Gemini based only on retrieved document chunks.
+    Generate an answer using DeepSeek based only on retrieved document chunks.
     """
 
-    model = get_chat_model(system_instruction=SYSTEM_PROMPT)
+    client = get_deepseek_client()
 
-    if model is None:
+    if client is None:
         raise ValueError(
-            "GEMINI_API_KEY not found. Please add GEMINI_API_KEY in your .env file."
+            "DeepSeek API key not found. Please add DEEPSEEK_API_KEY in your .env file."
         )
 
     context = build_context_from_chunks(retrieved_chunks)
@@ -419,14 +441,20 @@ User Question:
 Answer:
 """
 
-    response = model.generate_content(
-        user_prompt,
-        generation_config={
-            "temperature": 0.1,
-            # Thinking-mode models spend output tokens on hidden thinking,
-            # so the budget must leave room for the answer on top of that.
-            "max_output_tokens": 2048,
-        },
+    response = client.chat.completions.create(
+        model="deepseek-chat",
+        messages=[
+            {
+                "role": "system",
+                "content": SYSTEM_PROMPT
+            },
+            {
+                "role": "user",
+                "content": user_prompt
+            }
+        ],
+        temperature=0.3,
+        max_tokens=700
     )
 
-    return response.text
+    return response.choices[0].message.content

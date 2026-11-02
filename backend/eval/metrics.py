@@ -1,9 +1,8 @@
 """
 LLM-as-a-Judge metrics for the RAG Triad.
 
-All three judges use gemini-flash-lite-latest with strict JSON output
-(response_mime_type application/json) and return a score in [0.0, 1.0]
-plus reasoning:
+All three judges use deepseek-chat in JSON mode (response_format
+json_object) and return a score in [0.0, 1.0] plus reasoning:
 
 1. Context Relevance  — do the retrieved chunks contain the information
    needed to answer the query, without excessive noise?
@@ -25,10 +24,9 @@ from typing import Dict, List
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from gemini_client import get_chat_model
-from chatbot import format_chunk_source
+from chatbot import format_chunk_source, get_deepseek_client
 
-JUDGE_MODEL = "gemini-flash-lite-latest"
+JUDGE_MODEL = "deepseek-chat"
 
 CHUNK_TEXT_LIMIT = 1500
 ANSWER_TEXT_LIMIT = 2500
@@ -66,30 +64,27 @@ def _clamp_score(value) -> float:
     return max(0.0, min(1.0, score))
 
 
-def _judge(system_prompt: str, user_prompt: str, max_tokens: int = 1024) -> Dict:
-    model = get_chat_model(system_prompt)
+def _judge(system_prompt: str, user_prompt: str, max_tokens: int = 600) -> Dict:
+    client = get_deepseek_client()
 
-    if model is None:
-        raise JudgeError("GEMINI_API_KEY is not configured; judge unavailable.")
+    if client is None:
+        raise JudgeError("DEEPSEEK_API_KEY is not configured; judge unavailable.")
 
     try:
-        response = model.generate_content(
-            user_prompt,
-            generation_config={
-                "temperature": 0.0,
-                # Headroom for hidden thinking tokens (current Gemini
-                # models think by default).
-                "max_output_tokens": max_tokens,
-                "response_mime_type": "application/json",
-            },
+        response = client.chat.completions.create(
+            model=JUDGE_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.0,
+            max_tokens=max_tokens,
+            response_format={"type": "json_object"},
         )
-        raw = response.text
     except Exception as exc:
-        # Covers API failures and blocked/empty responses (.text raises
-        # ValueError when the model returned no candidates text).
         raise JudgeError(f"Judge API call failed: {exc}") from exc
 
-    return _parse_judge_json(raw)
+    return _parse_judge_json(response.choices[0].message.content)
 
 
 def _format_chunks(retrieved_chunks: List[Dict]) -> str:

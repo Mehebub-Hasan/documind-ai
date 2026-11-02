@@ -22,7 +22,7 @@ from auth import (
 from chatbot import (
     BELOW_THRESHOLD_ANSWER,
     NOT_FOUND_ANSWER,
-    answer_question_with_gemini,
+    answer_question_with_deepseek,
     verify_attributions,
 )
 from chunker import create_chunks_from_pages, create_chunks_from_units
@@ -839,7 +839,7 @@ def ask_pdf(
 ):
     """
     Ask a question about one of the current user's documents.
-    Uses FAISS retrieval + Gemini LLM answer generation. Both the question
+    Uses FAISS retrieval + DeepSeek LLM answer generation. Both the question
     and the answer (with sources) are persisted as chat history.
     """
 
@@ -895,7 +895,7 @@ def ask_pdf(
             grounded = False
             verification = None
         else:
-            raw_answer = answer_question_with_gemini(
+            raw_answer = answer_question_with_deepseek(
                 question=request.question,
                 retrieved_chunks=retrieved_chunks
             )
