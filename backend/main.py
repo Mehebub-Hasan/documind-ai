@@ -62,7 +62,9 @@ app = FastAPI(
 
 DEFAULT_ORIGINS = [
     "http://localhost:3000",
-    "http://127.0.0.1:3000"
+    "http://127.0.0.1:3000",
+    # Production frontend on Vercel
+    "https://documind-ai-fawn-phi.vercel.app",
 ]
 ENV_ORIGINS = [
     origin.strip()
@@ -71,12 +73,21 @@ ENV_ORIGINS = [
 ]
 ALLOWED_ORIGINS = sorted(set(DEFAULT_ORIGINS + ENV_ORIGINS))
 
+# Every Vercel preview deployment for this project gets a random
+# <hash>.vercel.app origin. Matching them with a regex keeps them allowed
+# without opening the API to arbitrary sites, and — unlike
+# allow_origins=["*"] — it is compatible with allow_credentials=True:
+# the middleware echoes the matched origin back instead of a wildcard.
+VERCEL_ORIGIN_REGEX = r"^https:\/\/.*\.vercel\.app$"
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=VERCEL_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 
