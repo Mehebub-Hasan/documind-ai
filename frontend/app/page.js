@@ -765,58 +765,116 @@ export default function Home() {
     }
   }, []);
 
-  // Restore a saved session on first load.
+  // Restore a saved session on first load — never blocks the first paint.
+  //
+  // - No stored token: resolved without any network call. The landing page
+  //   renders instantly, even against a cold/sleeping backend.
+  // - Stored token: the workspace paints immediately from the cached
+  //   profile, and /auth/me revalidates in the background. A 401 or an
+  //   unusable payload drops the stale session (the landing page takes
+  //   over); network or server failures keep the cached session, so a
+  //   cold or waking backend never signs the user out.
+  //
+  // Storage reads happen synchronously; the state writes are deferred to a
+  // microtask (same pattern as the theme restore below) to keep the first
+  // client render identical to the SSR output.
   useEffect(() => {
     let cancelled = false;
 
-    const restoreSession = async () => {
-      await Promise.resolve();
-      if (cancelled) return;
+    const storedToken = window.localStorage.getItem(TOKEN_STORAGE_KEY);
+    const storedUser = window.localStorage.getItem(USER_STORAGE_KEY);
 
-      const storedToken = window.localStorage.getItem(TOKEN_STORAGE_KEY);
-      const storedUser = window.localStorage.getItem(USER_STORAGE_KEY);
+    // No saved session: resolve immediately — no fetch at all.
+    if (!storedToken || !storedUser) {
+      Promise.resolve().then(() => {
+        if (!cancelled) setSessionChecked(true);
+      });
+      return;
+    }
 
-      if (!storedToken || !storedUser) {
-        setSessionChecked(true);
-        return;
-      }
+    let cachedUser = null;
 
-      let cachedUser = null;
+    try {
+      cachedUser = JSON.parse(storedUser);
+    } catch {
+      cachedUser = null;
+    }
 
-      try {
-        cachedUser = JSON.parse(storedUser);
-      } catch {
+    // A usable cached profile must be an object with an email; anything
+    // else (corrupted JSON, `{ detail: ... }` fragments) is a stale
+    // session — drop it and show the landing page immediately.
+    if (
+      !cachedUser ||
+      typeof cachedUser !== "object" ||
+      typeof cachedUser.email !== "string"
+    ) {
+      Promise.resolve().then(() => {
+        if (cancelled) return;
+        window.localStorage.removeItem(TOKEN_STORAGE_KEY);
         window.localStorage.removeItem(USER_STORAGE_KEY);
-      }
-
-      if (!cachedUser) {
         setSessionChecked(true);
-        return;
-      }
+      });
+      return;
+    }
 
+    // Optimistic session: workspace from cache while /auth/me revalidates.
+    Promise.resolve().then(() => {
+      if (cancelled) return;
       setUser(cachedUser);
+      setSessionChecked(true);
+    });
+
+    const revalidate = async () => {
+      let sessionUsable = false;
 
       try {
         const response = await api.get("/auth/me");
         if (cancelled) return;
 
-        setUser(response.data.user);
-        await loadDocuments();
-      } catch {
-        // Invalid or expired token: the 401 interceptor logs the session out.
-      } finally {
-        if (!cancelled) {
-          setSessionChecked(true);
+        const freshUser = response.data?.user;
+
+        if (
+          freshUser &&
+          typeof freshUser === "object" &&
+          typeof freshUser.email === "string"
+        ) {
+          setUser(freshUser);
+          window.localStorage.setItem(
+            USER_STORAGE_KEY,
+            JSON.stringify(freshUser)
+          );
+          sessionUsable = true;
+        } else {
+          // 200 with an unusable payload — treat as an invalid session.
+          logout();
         }
+      } catch (err) {
+        if (cancelled) return;
+
+        if (err?.response?.status === 401) {
+          // Invalid or expired token: drop the session (the response
+          // interceptor also fires logout on 401).
+          logout();
+        } else {
+          // Network or server error — e.g. a cold or waking backend.
+          // Keep the cached session: the user stays signed in, and the
+          // next API call that reaches the backend revalidates the token
+          // (the interceptor logs out on a 401 then).
+          sessionUsable = true;
+        }
+      }
+
+      if (sessionUsable && !cancelled) {
+        loadDocuments();
       }
     };
 
-    restoreSession();
+    revalidate();
 
     return () => {
       cancelled = true;
     };
-  }, [loadDocuments]);
+  }, [loadDocuments, logout]);
 
   const updateAuthForm = (field) => (event) =>
     setAuthForm((prev) => ({ ...prev, [field]: event.target.value }));
